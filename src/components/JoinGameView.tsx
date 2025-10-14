@@ -10,7 +10,6 @@ import { Warning } from "./shared/Warning";
 const JoinGameView = () => {
 	const [contractAddress, setContractAddress] = useState<string>("");
 	const [selectedMove, setSelectedMove] = useState<number>(0);
-	const [stakeAmount, setStakeAmount] = useState<string>("");
 	const [gameInfo, setGameInfo] = useState<any>(null);
 	const [playerRole, setPlayerRole] = useState<'player1' | 'player2' | null>(null);
 	const [timeLeft, setTimeLeft] = useState<number>(0);
