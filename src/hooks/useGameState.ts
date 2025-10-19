@@ -391,6 +391,7 @@ export const useGameState = (): GameContextType => {
       // Determine next view based on game state
       if (j1Address === "0x0000000000000000000000000000000000000000" && j2Address === "0x0000000000000000000000000000000000000000") {
         // We can't determine player role from contract, so show a generic view
+        console.log("⚠️ ABI mismatch detected - j1 and j2 addresses not available");
         setWarningMessage("Contract loaded successfully, but player addresses cannot be retrieved. This contract may have been deployed with a different ABI. You can still view the game state.");
         setWarningType('warning');
         setCurrentView('join-game'); // Stay on join game view
@@ -415,7 +416,13 @@ export const useGameState = (): GameContextType => {
         }
         // If we can't determine role, show generic view
         else {
-          setWarningMessage("Contract loaded successfully, but cannot determine your player role. You may not be a player in this game.");
+          console.log("🔍 Player role analysis:");
+          console.log("👤 Current user:", currentAddress);
+          console.log("👤 Player 1 (j1):", j1Address);
+          console.log("👤 Player 2 (j2):", j2Address);
+          console.log("❌ Current user is not a player in this game");
+          
+          setWarningMessage(`You are not a player in this game. This game is between Player 1 (${j1Address.slice(0,6)}...${j1Address.slice(-4)}) and Player 2 (${j2Address.slice(0,6)}...${j2Address.slice(-4)}).`);
           setWarningType('warning');
           setCurrentView('join-game');
         }
