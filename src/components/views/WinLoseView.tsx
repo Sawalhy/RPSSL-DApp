@@ -1,4 +1,3 @@
-import { Warning } from "../shared/Warning";
 import type { GameContextType } from "../../hooks/useGameState";
 
 interface WinLoseViewProps {
@@ -10,9 +9,6 @@ interface WinLoseViewProps {
 export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
   const {
     gameInfo,
-    warningMessage,
-    warningType,
-    setWarningMessage,
     setCurrentView
   } = gameState;
 
@@ -70,13 +66,6 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
         Play Again
       </button>
 
-      {warningMessage && (
-        <Warning 
-          message={warningMessage} 
-          type={warningType} 
-          onClose={() => setWarningMessage("")}
-        />
-      )}
     </div>
   );
 };

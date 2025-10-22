@@ -1,5 +1,4 @@
 import { MoveSelector } from "../shared/MoveSelector";
-import { Warning } from "../shared/Warning";
 import { Timer } from "../shared/Timer";
 import type { GameContextType } from "../../hooks/useGameState";
 
@@ -12,12 +11,9 @@ export const CreateGameView = ({ gameState }: CreateGameViewProps) => {
     gameInfo,
     selectedMove,
     stakeAmount,
-    warningMessage,
-    warningType,
     setGameInfo,
     setSelectedMove,
     setStakeAmount,
-    setWarningMessage,
     deployContract
   } = gameState;
 
@@ -83,13 +79,6 @@ export const CreateGameView = ({ gameState }: CreateGameViewProps) => {
         </button>
       </div>
 
-      {warningMessage && (
-        <Warning
-          message={warningMessage}
-          type={warningType}
-          onClose={() => setWarningMessage("")}
-        />
-      )}
     </div>
   );
 };

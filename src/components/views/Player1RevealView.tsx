@@ -1,27 +1,43 @@
+import { Warning } from "../shared/Warning";
 import { Timer } from "../shared/Timer";
 import type { GameContextType } from "../../hooks/useGameState";
 
-interface Player2WaitViewProps {
+interface Player1RevealViewProps {
   gameState: GameContextType;
 }
 
-export const Player2WaitView = ({ gameState }: Player2WaitViewProps) => {
+export const Player1RevealView = ({ gameState }: Player1RevealViewProps) => {
   const {
     gameInfo,
+    generatedSalt,
     selectedMove,
     timeLeft,
     isTimerActive,
-    callTimeout
+    callTimeout,
+    revealMove
   } = gameState;
-
-  // Debug logging
-  console.log("Player2WaitView - Timer state:", { timeLeft, isTimerActive });
 
   return (
     <div>
-      <h3>Player 2 - Waiting for Player 1</h3>
+      <h3>Player 1 - Reveal Your Move</h3>
       
       <div style={{ marginBottom: '20px' }}>
+        <button 
+          onClick={revealMove}
+          style={{
+            padding: '10px 20px',
+            fontSize: '14px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            marginRight: '10px'
+          }}
+        >
+          Reveal Move
+        </button>
+
         <button 
           onClick={callTimeout}
           disabled={isTimerActive}
@@ -45,7 +61,7 @@ export const Player2WaitView = ({ gameState }: Player2WaitViewProps) => {
           timeLeft={timeLeft}
           isActive={isTimerActive}
           title="Player 1's Reveal Timer"
-          subtitle="Time for Player 1 to reveal"
+          subtitle="Time to reveal your move"
         />
       )}
 
@@ -57,11 +73,11 @@ export const Player2WaitView = ({ gameState }: Player2WaitViewProps) => {
         borderRadius: '8px',
         color: '#155724'
       }}>
-        <h4>Move Already Played</h4>
-        <p>You played: <strong>Move {selectedMove}</strong></p>
-        <p>Waiting for Player 1 to reveal their move...</p>
+        <h4>Ready to Reveal</h4>
+        <p>Player 2 has played their move. You can now reveal your move to determine the winner.</p>
+        <p><strong>Your Committed Move:</strong> {selectedMove > 0 ? `Move ${selectedMove}` : 'Not available'}</p>
+        <p><strong>Salt:</strong> {generatedSalt ? generatedSalt.substring(0, 10) + '...' : 'Not available'}</p>
       </div>
-
     </div>
   );
 };

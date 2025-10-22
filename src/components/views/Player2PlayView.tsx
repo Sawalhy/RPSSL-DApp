@@ -1,5 +1,4 @@
 import { MoveSelector } from "../shared/MoveSelector";
-import { Warning } from "../shared/Warning";
 import { Timer } from "../shared/Timer";
 import type { GameContextType } from "../../hooks/useGameState";
 
@@ -13,10 +12,7 @@ export const Player2PlayView = ({ gameState }: Player2PlayViewProps) => {
     selectedMove,
     timeLeft,
     isTimerActive,
-    warningMessage,
-    warningType,
     setSelectedMove,
-    setWarningMessage,
     playMove
   } = gameState;
 
@@ -29,9 +25,6 @@ export const Player2PlayView = ({ gameState }: Player2PlayViewProps) => {
         onMoveSelect={setSelectedMove}
       />
 
-      <div style={{ marginBottom: '20px' }}>
-        <label>Stake Amount: {gameInfo?.stake} ETH</label>
-      </div>
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
         <button 
@@ -59,13 +52,6 @@ export const Player2PlayView = ({ gameState }: Player2PlayViewProps) => {
         />
       )}
 
-      {warningMessage && (
-        <Warning 
-          message={warningMessage} 
-          type={warningType} 
-          onClose={() => setWarningMessage("")}
-        />
-      )}
     </div>
   );
 };

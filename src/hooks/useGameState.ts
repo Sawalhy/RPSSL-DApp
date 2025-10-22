@@ -8,6 +8,7 @@ export type GameState =
   | 'create-game'
   | 'join-game'
   | 'player1-wait'
+  | 'player1-reveal'
   | 'player2-play'
   | 'player2-wait'
   | 'player1-win'
@@ -20,6 +21,7 @@ export interface GameInfo {
   j1Address: string;
   j2Address: string;
   stake: string;
+  originalStake: string; // Store the original stake amount before game ends
   c1Hash: string;
   c2: number;
   lastAction: number;
@@ -42,6 +44,7 @@ export interface GameContextType {
   // UI state
   warningMessage: string;
   warningType: 'error' | 'warning' | 'info';
+  isDeploying: boolean;
   
   // Actions
   setCurrentView: (view: GameState) => void;
@@ -53,6 +56,7 @@ export interface GameContextType {
   setIsTimerActive: (active: boolean) => void;
   setWarningMessage: (message: string) => void;
   setWarningType: (type: 'error' | 'warning' | 'info') => void;
+  setIsDeploying: (deploying: boolean) => void;
   
   // Game functions
   checkGameStatus: () => Promise<void>;
@@ -77,6 +81,7 @@ export const useGameState = (): GameContextType => {
   // UI state
   const [warningMessage, setWarningMessage] = useState<string>("");
   const [warningType, setWarningType] = useState<'error' | 'warning' | 'info'>('warning');
+  const [isDeploying, setIsDeploying] = useState<boolean>(false);
 
   // Timer effect
   useEffect(() => {
@@ -91,6 +96,9 @@ export const useGameState = (): GameContextType => {
       if (gameInfo?.playerRole === 'player2' && currentView === 'player2-play') {
         setWarningMessage("Time's up! You can now call timeout to win the game.");
         setWarningType('info');
+      } else if (gameInfo?.playerRole === 'player2' && currentView === 'player2-wait') {
+        setWarningMessage("Time's up! Player 1's turn has expired. You can now call timeout to win the game.");
+        setWarningType('info');
       } else if (gameInfo?.playerRole === 'player1' && currentView === 'player1-wait') {
         setWarningMessage("Time's up! Player 2's turn has expired.\n\n⚠️ WARNING: Calling timeout will spend gas that cannot be recovered. Only call timeout if you're sure Player 2 will not play.");
         setWarningType('warning');
@@ -102,112 +110,232 @@ export const useGameState = (): GameContextType => {
     };
   }, [isTimerActive, timeLeft, gameInfo?.playerRole, currentView]);
 
+  // Clear warnings when view changes
+  useEffect(() => {
+    setWarningMessage("");
+  }, [currentView]);
+
+  // Automatic status checking every 60 seconds for active game states
+  useEffect(() => {
+    let statusInterval: NodeJS.Timeout | null = null;
+    
+    const activeStates = ['player1-wait', 'player1-reveal', 'player2-play', 'player2-wait'];
+    
+    if (activeStates.includes(currentView) && gameInfo?.contractAddress) {
+      console.log("🔄 Starting automatic status checks every 60 seconds (reduced frequency to avoid RPC quota limits)");
+      statusInterval = setInterval(() => {
+        console.log("⏰ Automatic status check triggered");
+        checkGameStatus();
+      }, 60000); // Changed to 60000ms (60 seconds / 1 minute)
+    }
+
+    return () => {
+      if (statusInterval) {
+        console.log("🛑 Stopping automatic status checks");
+        clearInterval(statusInterval);
+      }
+    };
+  }, [currentView, gameInfo?.contractAddress]);
+
+  // Local win function implementation
+  const win = (c1: number, c2: number): boolean => {
+    if (c1 === c2) return false;
+    if (c1 === 0) return false;
+    if (c1 % 2 === c2 % 2) return c1 < c2;
+    return c1 > c2;
+  };
+
+  // Determine winner by parsing transaction history
+  const determineWinner = async (j1Address: string, j2Address: string, c2: number, currentAddress: string) => {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(gameInfo!.contractAddress, abi, provider);
+      
+      // Get recent transactions to the contract
+      const filter = {
+        address: gameInfo!.contractAddress,
+        fromBlock: -1000, // Last 1000 blocks
+        toBlock: 'latest'
+      };
+      
+      const logs = await provider.getLogs(filter);
+      
+      // Find the most recent transaction that ended the game
+      let lastEndingTransaction = null;
+      for (const log of logs.reverse()) {
+        try {
+          const tx = await provider.getTransaction(log.transactionHash);
+          if (tx && tx.to === gameInfo!.contractAddress) {
+            // Decode the transaction input to see which function was called
+            const decoded = contract.interface.parseTransaction(tx);
+            if (decoded && (decoded.name === 'solve' || decoded.name === 'j1Timeout' || decoded.name === 'j2Timeout')) {
+              lastEndingTransaction = { tx, decoded };
+              break;
+            }
+          }
+        } catch (e) {
+          // Skip invalid transactions
+          continue;
+        }
+      }
+      
+      if (!lastEndingTransaction) {
+        // Fallback: determine winner based on who should have won
+        setWarningMessage("Game ended but couldn't determine winner from transaction history. Check your wallet balance to see if you won.");
+        setWarningType('warning');
+        setCurrentView(currentAddress.toLowerCase() === j1Address.toLowerCase() ? 'player1-win' : 'player2-win');
+        return;
+      }
+      
+      const { decoded } = lastEndingTransaction;
+      const isPlayer1 = currentAddress.toLowerCase() === j1Address.toLowerCase();
+      const isPlayer2 = currentAddress.toLowerCase() === j2Address.toLowerCase();
+      
+      if (decoded.name === 'solve') {
+        // Game ended via solve() - need to determine winner based on moves
+        const c1 = decoded.args[0]; // First argument is the move
+        const winner = win(c1, c2);
+        
+        if (winner) {
+          // Player 1 won
+          setCurrentView(isPlayer1 ? 'player1-win' : 'player1-lose');
+          setWarningMessage(isPlayer1 ? "You won! Player 1 beats Player 2." : "You lost! Player 1 beats Player 2.");
+        } else if (win(c2, c1)) {
+          // Player 2 won
+          setCurrentView(isPlayer2 ? 'player2-win' : 'player2-lose');
+          setWarningMessage(isPlayer2 ? "You won! Player 2 beats Player 1." : "You lost! Player 2 beats Player 1.");
+        } else {
+          // Tie
+          setCurrentView(isPlayer1 ? 'player1-win' : 'player2-win'); // Both get their stake back
+          setWarningMessage("It's a tie! Both players get their stake back.");
+        }
+      } else if (decoded.name === 'j1Timeout') {
+        // Player 2 won via timeout
+        setCurrentView(isPlayer2 ? 'player2-win' : 'player1-lose');
+        setWarningMessage(isPlayer2 ? "You won! Player 1 timed out." : "You lost! You timed out.");
+      } else if (decoded.name === 'j2Timeout') {
+        // Player 1 won via timeout
+        setCurrentView(isPlayer1 ? 'player1-win' : 'player2-lose');
+        setWarningMessage(isPlayer1 ? "You won! Player 2 timed out." : "You lost! You timed out.");
+      }
+      
+      setWarningType('info');
+    } catch (error) {
+      console.error("Error determining winner:", error);
+      setWarningMessage("Game ended but couldn't determine winner due to error. Check your wallet balance to see if you won.");
+      setWarningType('warning');
+      setCurrentView(currentAddress.toLowerCase() === j1Address.toLowerCase() ? 'player1-win' : 'player2-win');
+    }
+  };
+
   // Check game status function
   const checkGameStatus = async () => {
+    console.log("🔍 Starting game status check...");
+    
     if (!gameInfo?.contractAddress) {
+      console.log("❌ No contract address provided");
       setWarningMessage("No contract address provided");
       setWarningType('error');
       return;
     }
+    
+    console.log("📍 Contract address:", gameInfo.contractAddress);
 
     // Validate contract address format
     if (!ethers.isAddress(gameInfo.contractAddress)) {
+      console.log("❌ Invalid contract address format");
       setWarningMessage("Invalid contract address format");
       setWarningType('error');
       return;
     }
+    console.log("✅ Contract address format is valid");
 
     try {
-      console.log("🔍 DEBUGGING CONTRACT INTERACTION");
-      console.log("📋 Contract Address:", gameInfo.contractAddress);
-      console.log("🌐 Window.ethereum available:", !!window.ethereum);
-      
+      console.log("🔌 Connecting to provider...");
       const provider = new ethers.BrowserProvider(window.ethereum);
-      console.log("🔗 Provider created:", !!provider);
       
+      console.log("🌐 Checking network...");
       // Check network
       const network = await provider.getNetwork();
-      console.log("🌍 Network Info:", {
-        name: network.name,
-        chainId: network.chainId.toString(),
-        isSepolia: network.chainId === 11155111n
-      });
+      console.log("Network info:", { name: network.name, chainId: network.chainId.toString() });
       
       // Check if we're on the right network
       if (network.chainId !== 11155111n) {
-        console.warn("⚠️ Wrong network! Expected Sepolia (11155111), got:", network.chainId.toString());
+        console.log("❌ Wrong network detected");
         setWarningMessage(`Wrong network detected. Please switch to Sepolia testnet. Current: ${network.name} (${network.chainId})`);
         setWarningType('error');
         return;
       }
+      console.log("✅ Correct network (Sepolia)");
       
+      console.log("📄 Creating contract instance...");
       const contract = new ethers.Contract(gameInfo.contractAddress, abi, provider);
-      console.log("📄 Contract instance created:", !!contract);
-      console.log("📋 ABI length:", abi.length);
-      
       const signer = await provider.getSigner();
       const currentAddress = await signer.getAddress();
-      console.log("👤 Current address:", currentAddress);
-      
-      // Check account balance
-      const balance = await provider.getBalance(currentAddress);
-      console.log("💰 Account balance:", ethers.formatEther(balance), "ETH");
-      
-      // Check if account has enough balance for gas
-      if (balance < ethers.parseEther("0.001")) {
-        console.warn("⚠️ Low balance! May not have enough for gas fees");
-      }
+      console.log("✅ Contract instance created, current address:", currentAddress);
 
       // Check if contract exists by calling a simple view function first
       let j1Address, j2Address, stake, c1Hash, c2, lastAction, timeout;
+      console.log("🔍 Checking if contract exists...");
       
       try {
-        console.log("Attempting to call contract functions...");
-        console.log("Contract address:", gameInfo.contractAddress);
-        
-        // First, check if there's any code at the address
+        // Check if there's any code at the address
         const code = await provider.getCode(gameInfo.contractAddress);
+        console.log("Contract code length:", code.length);
         if (code === '0x') {
+          console.log("❌ No contract code found at address");
           setWarningMessage("No contract found at this address. The address is empty. Please deploy a contract first or check the address.");
           setWarningType('error');
           return;
         }
-        console.log("Contract code found:", code.substring(0, 10) + "...");
+        console.log("✅ Contract code found");
         
-        // Check if this is actually a contract (not an EOA)
-        const balance = await provider.getBalance(gameInfo.contractAddress);
-        const nonce = await provider.getTransactionCount(gameInfo.contractAddress);
-        console.log("Contract balance:", ethers.formatEther(balance), "ETH");
-        console.log("Contract nonce:", nonce);
+        // Test basic contract connectivity with multiple approaches
+        let contractWorking = false;
+        let testError: any = null;
         
-        if (nonce === 0 && balance === 0n) {
-          setWarningMessage("This address appears to be empty (no transactions, no balance). Please verify the contract address.");
-          setWarningType('error');
-          return;
+        try {
+          console.log("🧪 Testing contract connectivity with stake() call...");
+          const stakeValue = await contract.stake();
+          console.log("✅ Contract stake() call successful:", stakeValue.toString());
+          contractWorking = true;
+        } catch (error) {
+          testError = error;
+          console.error("❌ Contract stake() call failed:", testError);
+          
+          // Try alternative approach - check if we can get any data
+          try {
+            console.log("Trying alternative contract detection...");
+            const code = await provider.getCode(gameInfo.contractAddress);
+            console.log("Contract code length:", code.length);
+            
+            if (code.length > 2) {
+              console.log("Contract has code, trying to get balance...");
+              const balance = await provider.getBalance(gameInfo.contractAddress);
+              console.log("Contract balance:", ethers.formatEther(balance), "ETH");
+              
+              if (balance > 0) {
+                console.log("Contract has balance, likely working but ABI mismatch");
+                contractWorking = true; // Assume it's working despite ABI issues
+              }
+            }
+          } catch (altError) {
+            console.error("Alternative detection failed:", altError);
+          }
         }
         
-        // Check network information
-        const network = await provider.getNetwork();
-        console.log("Connected to network:", network);
-        
-        // Try to call a simple function first to test connectivity
-        try {
-          console.log("🧪 Testing basic contract connectivity with stake()...");
-          const testCall = await contract.stake();
-          console.log("✅ Test call to stake() successful:", testCall);
-          console.log("📊 Stake value type:", typeof testCall);
-          console.log("📊 Stake value:", testCall.toString());
-        } catch (testError) {
-          console.error("❌ Test call failed:", testError);
-          console.error("🔍 Error details:", {
-            code: testError.code,
-            message: testError.message,
-            reason: testError.reason,
-            data: testError.data
-          });
-          
-          if (testError.code === 'CALL_EXCEPTION' && testError.message.includes('missing revert data')) {
-            setWarningMessage(`Contract not found at this address on ${network.name} (Chain ID: ${network.chainId}). Please verify the contract address and ensure you're connected to the correct network.`);
+        if (!contractWorking) {
+          // More specific error handling
+          if (testError && testError.code === 'CALL_EXCEPTION') {
+            if (testError.message.includes('missing revert data')) {
+              setWarningMessage(`Contract not found at this address on ${network.name} (Chain ID: ${network.chainId}). Please verify the contract address and ensure you're connected to the correct network.`);
+        } else if (testError.message.includes('could not decode result data')) {
+          setWarningMessage("Contract found but ABI mismatch detected. This contract may have been deployed with a different version or ABI.");
+        } else if (testError.message.includes('project ID exceeded quota')) {
+          setWarningMessage("RPC quota exceeded. Please switch to a different RPC endpoint in MetaMask or wait for quota reset (usually resets daily).");
+        } else {
+          setWarningMessage(`Contract call failed: ${testError.message}`);
+        }
           } else {
             setWarningMessage("Contract exists but cannot be called. This might be a different contract type or the contract is not properly initialized.");
           }
@@ -215,144 +343,52 @@ export const useGameState = (): GameContextType => {
           return;
         }
         
-        // Try to access j1 and j2 as functions (they are getter functions for public variables)
+        // Get player addresses
         try {
-          console.log("📞 Calling j1() function...");
           j1Address = await contract.j1();
-          console.log("✅ j1() successful:", j1Address);
-          console.log("📊 j1() type:", typeof j1Address);
-          console.log("📏 j1() length:", j1Address.length);
-          console.log("🔍 j1() is valid address:", ethers.isAddress(j1Address));
-          
-          // Check if it's a valid address
-          if (!ethers.isAddress(j1Address)) {
-            console.warn("j1() returned invalid address, treating as placeholder");
+          if (!ethers.isAddress(j1Address) || j1Address === "0x0000000000000000000000000000000000000000") {
             j1Address = "0x0000000000000000000000000000000000000000";
-          } else {
-            // Check if it's a zero address or uninitialized
-            if (j1Address === "0x0000000000000000000000000000000000000000" || 
-                j1Address.startsWith("0x00000000000000000000000000000000000000")) {
-              console.warn("j1() returned zero/uninitialized address, treating as placeholder");
-              j1Address = "0x0000000000000000000000000000000000000000";
-            }
           }
         } catch (j1Error) {
-          console.error("❌ j1() failed:", j1Error);
-          console.error("🔍 j1() error details:", {
-            code: j1Error.code,
-            message: j1Error.message,
-            reason: j1Error.reason,
-            data: j1Error.data
-          });
-          j1Address = "0x0000000000000000000000000000000000000000"; // Placeholder
+          console.error("j1() failed:", j1Error);
+          j1Address = "0x0000000000000000000000000000000000000000";
         }
 
         try {
-          console.log("📞 Calling j2() function...");
           j2Address = await contract.j2();
-          console.log("✅ j2() successful:", j2Address);
-          console.log("📊 j2() type:", typeof j2Address);
-          console.log("📏 j2() length:", j2Address.length);
-          console.log("🔍 j2() is valid address:", ethers.isAddress(j2Address));
-          
-          // Check if it's a valid address
-          if (!ethers.isAddress(j2Address)) {
-            console.warn("j2() returned invalid address, treating as placeholder");
+          if (!ethers.isAddress(j2Address) || j2Address === "0x0000000000000000000000000000000000000000") {
             j2Address = "0x0000000000000000000000000000000000000000";
-          } else {
-            // Check if it's a zero address or uninitialized
-            if (j2Address === "0x0000000000000000000000000000000000000000" || 
-                j2Address.startsWith("0x00000000000000000000000000000000000000")) {
-              console.warn("j2() returned zero/uninitialized address, treating as placeholder");
-              j2Address = "0x0000000000000000000000000000000000000000";
-            }
           }
         } catch (j2Error) {
-          console.error("❌ j2() failed:", j2Error);
-          console.error("🔍 j2() error details:", {
-            code: j2Error.code,
-            message: j2Error.message,
-            reason: j2Error.reason,
-            data: j2Error.data
-          });
-          j2Address = "0x0000000000000000000000000000000000000000"; // Placeholder
+          console.error("j2() failed:", j2Error);
+          j2Address = "0x0000000000000000000000000000000000000000";
         }
         
-        if (j1Address === "0x0000000000000000000000000000000000000000" && j2Address === "0x0000000000000000000000000000000000000000") {
-          console.log("j1 and j2 not available - ABI mismatch detected");
-        } else if (j1Address === "0x0000000000000000000000000000000000000000") {
-          console.log("j1 not available, but j2 is - partial ABI mismatch");
-        } else if (j2Address === "0x0000000000000000000000000000000000000000") {
-          console.log("j2 not available, but j1 is - partial ABI mismatch");
-        } else {
-          console.log("Both j1 and j2 addresses retrieved successfully");
-        }
-        
-        console.log("📞 Calling stake() function...");
+        // Get contract data
         stake = await contract.stake();
-        console.log("✅ stake() successful:", stake);
-        console.log("📊 stake value:", stake.toString());
-        
-        console.log("📞 Calling c1Hash() function...");
         c1Hash = await contract.c1Hash();
-        console.log("✅ c1Hash() successful:", c1Hash);
-        console.log("📊 c1Hash length:", c1Hash.length);
-        
-        console.log("📞 Calling c2() function...");
         c2 = await contract.c2();
-        console.log("✅ c2() successful:", c2);
-        console.log("📊 c2 value:", c2.toString());
-        
-        console.log("📞 Calling lastAction() function...");
         lastAction = await contract.lastAction();
-        console.log("✅ lastAction() successful:", lastAction);
-        console.log("📊 lastAction value:", lastAction.toString());
         
         // Try to get TIMEOUT, but handle if it fails
         try {
-          console.log("📞 Calling TIMEOUT() function...");
           timeout = await contract.TIMEOUT();
-          console.log("✅ TIMEOUT() successful:", timeout);
-          console.log("📊 TIMEOUT value:", timeout.toString());
         } catch (timeoutError) {
-          console.error("❌ TIMEOUT() failed:", timeoutError);
-          console.error("🔍 TIMEOUT() error details:", {
-            code: timeoutError.code,
-            message: timeoutError.message,
-            reason: timeoutError.reason,
-            data: timeoutError.data
-          });
           try {
-            console.log("📞 Trying TIMEOUT as property...");
             timeout = await contract.TIMEOUT;
-            console.log("✅ TIMEOUT property successful:", timeout);
-            console.log("📊 TIMEOUT property value:", timeout.toString());
           } catch (timeoutPropError) {
-            console.error("❌ TIMEOUT property also failed:", timeoutPropError);
-            console.error("🔍 TIMEOUT property error details:", {
-              code: timeoutPropError.code,
-              message: timeoutPropError.message,
-              reason: timeoutPropError.reason,
-              data: timeoutPropError.data
-            });
             timeout = 300; // Default to 5 minutes (300 seconds)
-            console.log("⚠️ Using default timeout of 300 seconds");
           }
         }
         
       } catch (contractError) {
         console.error("Contract call failed:", contractError);
-        console.error("Error details:", {
-          message: contractError.message,
-          code: contractError.code,
-          data: contractError.data
-        });
         
         // Check for specific error types
         if (contractError.code === 'BAD_DATA' && contractError.message.includes('could not decode result data')) {
           setWarningMessage("No contract found at this address. The address may be empty or the contract may not be deployed yet. Please verify the contract address and ensure it's deployed on the current network.");
         } else if (contractError.message.includes('missing revert data')) {
-          setWarningMessage("Contract not found at this address. Please verify the contract address is correct.");
+          setWarningMessage("Contract call failed - missing revert data. Please verify the contract address is correct.");
         } else if (contractError.message.includes('CALL_EXCEPTION')) {
           setWarningMessage("Unable to connect to contract. Please check the network and contract address.");
         } else {
@@ -362,23 +398,13 @@ export const useGameState = (): GameContextType => {
         return;
       }
 
-      console.log("🎉 CONTRACT INTERACTION SUMMARY:");
-      console.log("📋 Contract Address:", gameInfo.contractAddress);
-      console.log("👤 Player 1 (j1):", j1Address);
-      console.log("👤 Player 2 (j2):", j2Address);
-      console.log("💰 Stake:", ethers.formatEther(stake), "ETH");
-      console.log("🔐 C1 Hash:", c1Hash);
-      console.log("🎯 C2 Move:", c2);
-      console.log("⏰ Last Action:", new Date(Number(lastAction) * 1000).toLocaleString());
-      console.log("⏱️ Timeout:", timeout, "seconds");
-      console.log("🌍 Network:", network.name, "(Chain ID:", network.chainId.toString() + ")");
-      console.log("👤 Current User:", currentAddress);
 
       const updatedGameInfo: GameInfo = {
         contractAddress: gameInfo.contractAddress,
         j1Address,
         j2Address,
         stake: ethers.formatEther(stake),
+        originalStake: gameInfo.originalStake || ethers.formatEther(stake), // Preserve original stake
         c1Hash,
         c2: Number(c2),
         lastAction: Number(lastAction),
@@ -388,44 +414,46 @@ export const useGameState = (): GameContextType => {
 
       setGameInfo(updatedGameInfo);
 
-      // Determine next view based on game state
+      // Determine next view based on contract state
+      const stakeValue = Number(stake);
+      const c2Value = Number(c2);
+      
+      // Check if game has ended (stake = 0)
+      if (stakeValue === 0) {
+        await determineWinner(j1Address, j2Address, c2Value, currentAddress);
+        return;
+      }
+      
+      // Determine player role and state
       if (j1Address === "0x0000000000000000000000000000000000000000" && j2Address === "0x0000000000000000000000000000000000000000") {
-        // We can't determine player role from contract, so show a generic view
-        console.log("⚠️ ABI mismatch detected - j1 and j2 addresses not available");
-        setWarningMessage("Contract loaded successfully, but player addresses cannot be retrieved. This contract may have been deployed with a different ABI. You can still view the game state.");
+        // ABI mismatch - can't determine player role
+        setWarningMessage("Contract loaded successfully, but player addresses cannot be retrieved. This contract may have been deployed with a different ABI.");
         setWarningType('warning');
-        setCurrentView('join-game'); // Stay on join game view
+        setCurrentView('join-game');
+      } else if (j1Address !== "0x0000000000000000000000000000000000000000" && j1Address.toLowerCase() === currentAddress.toLowerCase()) {
+        // Player 1
+        if (c2Value === 0) {
+          setCurrentView('player1-wait');
+          setWarningMessage("");
+        } else {
+          setCurrentView('player1-reveal');
+          setWarningMessage("Player 2 has played! Reveal your move to determine the winner.");
+          setWarningType('info');
+        }
+      } else if (j2Address !== "0x0000000000000000000000000000000000000000" && j2Address.toLowerCase() === currentAddress.toLowerCase()) {
+        // Player 2
+        if (c2Value === 0) {
+          setCurrentView('player2-play');
+          setWarningMessage("");
+        } else {
+          setCurrentView('player2-wait');
+          setWarningMessage("");
+        }
       } else {
-        // Check if current user is Player 1 (if we have j1 address)
-        if (j1Address !== "0x0000000000000000000000000000000000000000" && j1Address.toLowerCase() === currentAddress.toLowerCase()) {
-          // Player 1
-          if (c2 === 0) {
-            setCurrentView('player1-wait');
-          } else {
-            setCurrentView('player1-wait');
-          }
-        } 
-        // Check if current user is Player 2 (if we have j2 address)
-        else if (j2Address !== "0x0000000000000000000000000000000000000000" && j2Address.toLowerCase() === currentAddress.toLowerCase()) {
-          // Player 2
-          if (c2 === 0) {
-            setCurrentView('player2-play');
-          } else {
-            setCurrentView('player2-wait');
-          }
-        }
-        // If we can't determine role, show generic view
-        else {
-          console.log("🔍 Player role analysis:");
-          console.log("👤 Current user:", currentAddress);
-          console.log("👤 Player 1 (j1):", j1Address);
-          console.log("👤 Player 2 (j2):", j2Address);
-          console.log("❌ Current user is not a player in this game");
-          
-          setWarningMessage(`You are not a player in this game. This game is between Player 1 (${j1Address.slice(0,6)}...${j1Address.slice(-4)}) and Player 2 (${j2Address.slice(0,6)}...${j2Address.slice(-4)}).`);
-          setWarningType('warning');
-          setCurrentView('join-game');
-        }
+        // Not a player in this game
+        setWarningMessage(`You are not a player in this game. This game is between Player 1 (${j1Address.slice(0,6)}...${j1Address.slice(-4)}) and Player 2 (${j2Address.slice(0,6)}...${j2Address.slice(-4)}).`);
+        setWarningType('warning');
+        setCurrentView('join-game');
       }
 
     } catch (error) {
@@ -449,103 +477,96 @@ export const useGameState = (): GameContextType => {
 
   // Deploy contract function
   const deployContract = async () => {
+    console.log("🚀 Starting contract deployment...");
     setWarningMessage(""); // Clear any previous warnings first
-    console.log("🚀 STARTING CONTRACT DEPLOYMENT");
+    setIsDeploying(true); // Start loading state
     
     try {
-      console.log("🔍 Validating deployment parameters...");
-      console.log("👤 Player 2 address:", gameInfo?.j2Address);
-      console.log("🎯 Selected move:", selectedMove);
-      console.log("💰 Stake amount:", stakeAmount);
-      
       if (!gameInfo?.j2Address) {
-        console.error("❌ Missing Player 2 address");
+        console.log("❌ Missing Player 2 address");
         setWarningMessage("Please enter Player 2's address");
         setWarningType('error');
+        setIsDeploying(false);
         return;
       }
       if (selectedMove === 0) {
-        console.error("❌ No move selected");
+        console.log("❌ No move selected");
         setWarningMessage("Please select a move");
         setWarningType('error');
+        setIsDeploying(false);
         return;
       }
       if (!stakeAmount || stakeAmount === "0") {
-        console.error("❌ Invalid stake amount");
+        console.log("❌ No stake amount provided");
         setWarningMessage("Please enter a stake amount");
         setWarningType('error');
+        setIsDeploying(false);
         return;
       }
-
-      console.log("✅ All parameters valid");
-      console.log("🔐 Generating salt and commitment hash...");
       
+      console.log("✅ Validation passed:", {
+        j2Address: gameInfo.j2Address,
+        selectedMove,
+        stakeAmount
+      });
+      
+      console.log("🔐 Generating salt and hash...");
       const saltHex = ethers.hexlify(ethers.randomBytes(32));
       const saltBig = BigInt(saltHex);
       const c1Hash = ethers.solidityPackedKeccak256(
         ["uint8", "uint256"],
         [selectedMove, saltBig]
       );
-      
-      console.log("🔐 Salt generated:", saltHex);
-      console.log("🔐 Commitment hash:", c1Hash);
-      console.log("🎯 Move committed:", selectedMove);
+      console.log("✅ Salt and hash generated:", { saltHex, c1Hash });
 
-      console.log("🔗 Setting up provider and signer...");
+      console.log("🔌 Connecting to provider and signer...");
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const currentAddress = await signer.getAddress();
-      console.log("👤 Deployer address:", currentAddress);
+      console.log("✅ Connected to wallet:", currentAddress);
       
-      // Check network
-      const network = await provider.getNetwork();
-      console.log("🌍 Network:", network.name, "(Chain ID:", network.chainId.toString() + ")");
-      
-      // Check balance
+      console.log("💰 Checking balance...");
       const balance = await provider.getBalance(currentAddress);
-      console.log("💰 Account balance:", ethers.formatEther(balance), "ETH");
-      
       const stakeValue = ethers.parseEther(stakeAmount);
-      console.log("💰 Stake value:", ethers.formatEther(stakeValue), "ETH");
+      console.log("Balance:", ethers.formatEther(balance), "ETH, Stake:", ethers.formatEther(stakeValue), "ETH");
       
       if (balance < stakeValue) {
-        console.error("❌ Insufficient balance for stake");
+        console.log("❌ Insufficient balance");
         setWarningMessage("Insufficient balance for the stake amount");
         setWarningType('error');
+        setIsDeploying(false);
         return;
       }
 
-      console.log("📄 Creating contract factory...");
-      console.log("📋 ABI length:", abi.length);
-      console.log("📦 Bytecode length:", bytecode.length);
+      console.log("🏭 Creating contract factory...");
+      console.log("ABI length:", abi.length);
+      console.log("Bytecode length:", bytecode.length);
+      console.log("Bytecode starts with:", bytecode.substring(0, 20));
       
       const factory = new ethers.ContractFactory(abi, bytecode, signer);
       console.log("✅ Contract factory created");
       
       console.log("🚀 Deploying contract...");
-      console.log("📋 Constructor args:", {
-        c1Hash,
-        j2Address: gameInfo.j2Address,
-        value: ethers.formatEther(stakeValue) + " ETH"
-      });
-      
       const contract = await factory.deploy(
         c1Hash,
         gameInfo.j2Address,
         { value: stakeValue }
       );
+      console.log("✅ Contract deployment transaction sent");
 
       console.log("⏳ Waiting for deployment confirmation...");
       const deployedAddress = await contract.getAddress();
-      console.log("✅ Contract deployed successfully!");
       console.log("📍 Contract address:", deployedAddress);
       
-      console.log("📋 Creating game info object...");
+      await contract.waitForDeployment();
+      console.log("✅ Contract deployed successfully!");
+      
       const newGameInfo: GameInfo = {
         contractAddress: deployedAddress,
         j1Address: currentAddress,
         j2Address: gameInfo.j2Address,
         stake: stakeAmount,
+        originalStake: stakeAmount, // Store original stake amount
         c1Hash,
         c2: 0,
         lastAction: Math.floor(Date.now() / 1000),
@@ -560,35 +581,37 @@ export const useGameState = (): GameContextType => {
       setIsTimerActive(true);
       setCurrentView('player1-wait');
       setWarningMessage(""); // Clear any previous warnings
-      
-      console.log("🎉 DEPLOYMENT COMPLETE!");
-      console.log("📍 Contract Address:", deployedAddress);
-      console.log("🔐 Salt (SAVE THIS!):", saltHex);
-      console.log("🎯 Committed Move:", selectedMove);
-      console.log("💰 Stake:", stakeAmount, "ETH");
-      console.log("👤 Player 1:", currentAddress);
-      console.log("👤 Player 2:", gameInfo.j2Address);
-      console.log("⏰ Timer started: 5 minutes");
+      setIsDeploying(false); // Stop loading state
+      console.log("✅ Game setup complete!");
     } catch (err: unknown) {
-      console.error("❌ DEPLOYMENT FAILED!");
-      console.error("🔍 Error details:", err);
+      console.error("❌ Deployment failed:", err);
+      setIsDeploying(false); // Stop loading state
       
       if (err instanceof Error) {
-        console.error("📋 Error message:", err.message);
-        console.error("📋 Error code:", (err as any).code);
-        console.error("📋 Error reason:", (err as any).reason);
-        console.error("📋 Error data:", (err as any).data);
+        console.error("Error details:", {
+          message: err.message,
+          name: err.name,
+          stack: err.stack
+        });
         
         if (err.message.includes('user rejected')) {
+          console.log("❌ User rejected transaction");
           setWarningMessage("Transaction was rejected by user. Please try again.");
-        } else if (err.message.includes('insufficient funds')) {
-          setWarningMessage("Insufficient funds for deployment. Please check your balance.");
         } else if (err.message.includes('gas')) {
+          console.log("❌ Gas estimation failed");
           setWarningMessage("Gas estimation failed. Please try again or increase gas limit.");
+        } else if (err.message.includes('InvalidJump')) {
+          console.log("❌ InvalidJump error - bytecode issue");
+          setWarningMessage("Contract deployment failed due to bytecode error. Please check the contract bytecode.");
+        } else if (err.message.includes('project ID exceeded quota')) {
+          console.log("❌ RPC quota exceeded");
+          setWarningMessage("RPC quota exceeded. Please switch to a different RPC endpoint in MetaMask or wait for quota reset (usually resets daily).");
         } else {
+          console.log("❌ Other deployment error");
           setWarningMessage(`Deployment failed: ${err.message}`);
         }
       } else {
+        console.log("❌ Unknown error type");
         setWarningMessage("Transaction was rejected or failed. Please check your wallet connection and try again.");
       }
       setWarningType('error');
@@ -603,7 +626,7 @@ export const useGameState = (): GameContextType => {
       return;
     }
     if (selectedMove === 0) {
-      setWarningMessage("Please select a move");
+      setWarningMessage("Please select a move to play");
       setWarningType('error');
       return;
     }
@@ -712,6 +735,7 @@ export const useGameState = (): GameContextType => {
     // UI state
     warningMessage,
     warningType,
+    isDeploying,
     
     // Actions
     setCurrentView,
@@ -723,6 +747,7 @@ export const useGameState = (): GameContextType => {
     setIsTimerActive,
     setWarningMessage,
     setWarningType,
+    setIsDeploying,
     
     // Game functions
     checkGameStatus,

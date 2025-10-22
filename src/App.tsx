@@ -3,13 +3,27 @@ import { useGameState } from "./hooks/useGameState";
 import { CreateGameView } from "./components/views/CreateGameView";
 import { JoinGameView } from "./components/views/JoinGameView";
 import { Player1WaitView } from "./components/views/Player1WaitView";
+import { Player1RevealView } from "./components/views/Player1RevealView";
 import { Player2PlayView } from "./components/views/Player2PlayView";
 import { Player2WaitView } from "./components/views/Player2WaitView";
 import { WinLoseView } from "./components/views/WinLoseView";
+import { Warning } from "./components/shared/Warning";
+import { GameInfoDisplay } from "./components/shared/GameInfoDisplay";
+import { DeploymentLoading } from "./components/shared/DeploymentLoading";
 
 function App() {
 	const gameState = useGameState();
-	const { currentView, setCurrentView } = gameState;
+	const { 
+		currentView, 
+		setCurrentView, 
+		gameInfo, 
+		generatedSalt, 
+		selectedMove, 
+		warningMessage, 
+		warningType, 
+		isDeploying,
+		setWarningMessage 
+	} = gameState;
 
 	const renderView = () => {
 		switch (currentView) {
@@ -19,6 +33,8 @@ function App() {
 				return <JoinGameView gameState={gameState} />;
 			case 'player1-wait':
 				return <Player1WaitView gameState={gameState} />;
+			case 'player1-reveal':
+				return <Player1RevealView gameState={gameState} />;
 			case 'player2-play':
 				return <Player2PlayView gameState={gameState} />;
 			case 'player2-wait':
@@ -78,10 +94,45 @@ function App() {
 		}
 	};
 
+	// Views that should show GameInfoDisplay
+	const showGameInfo = ['player1-wait', 'player1-reveal', 'player2-play', 'player2-wait'].includes(currentView);
+	
+	// Debug logging
+	console.log("App - GameInfoDisplay state:", { 
+		currentView, 
+		showGameInfo, 
+		hasGameInfo: !!gameInfo,
+		gameInfoRole: gameInfo?.playerRole 
+	});
+	
+	// Views that should show Back to Menu button
+	const showBackButton = !['landing', 'player1-win', 'player1-lose', 'player2-win', 'player2-lose'].includes(currentView);
+
 	return (
 		<div className="App">
 			{renderView()}
-			{(currentView !== 'landing' && currentView !== 'player1-win' && currentView !== 'player1-lose' && currentView !== 'player2-win' && currentView !== 'player2-lose') && (
+			
+			{/* Global Warning Display */}
+			{warningMessage && (
+				<Warning
+					message={warningMessage}
+					type={warningType}
+					onClose={() => setWarningMessage("")}
+				/>
+			)}
+			
+			{/* Game Info Display for active game states */}
+			{showGameInfo && gameInfo && (
+				<GameInfoDisplay
+					gameInfo={gameInfo}
+					generatedSalt={generatedSalt}
+					selectedMove={selectedMove}
+					showSalt={gameInfo.playerRole === 'player1'}
+				/>
+			)}
+			
+			{/* Back to Menu Button */}
+			{showBackButton && (
 				<div style={{ textAlign: 'center', marginTop: '20px' }}>
 						<button
 						onClick={() => setCurrentView('landing')}
@@ -99,6 +150,9 @@ function App() {
 						</button>
 				</div>
 			)}
+
+			{/* Deployment Loading Overlay */}
+			<DeploymentLoading isDeploying={isDeploying} />
 		</div>
 	);
 }
