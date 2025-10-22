@@ -1,4 +1,3 @@
-import { Warning } from "../shared/Warning";
 import { Timer } from "../shared/Timer";
 import type { GameContextType } from "../../hooks/useGameState";
 
@@ -12,12 +11,17 @@ export const Player2WaitView = ({ gameState }: Player2WaitViewProps) => {
     selectedMove,
     timeLeft,
     isTimerActive,
-    warningMessage,
-    warningType,
-    setWarningMessage,
-    checkGameStatus,
     callTimeout
   } = gameState;
+
+  const moves = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];
+  const player2Move = selectedMove > 0 ? moves[selectedMove] : 'Unknown';
+  
+  // Calculate if timeout button should be enabled
+  const canCallTimeout = !isTimerActive || timeLeft <= 0;
+  
+  // Debug logging
+  console.log("Player2WaitView - Timer state:", { timeLeft, isTimerActive, canCallTimeout });
 
   return (
     <div>
@@ -25,36 +29,20 @@ export const Player2WaitView = ({ gameState }: Player2WaitViewProps) => {
       
       <div style={{ marginBottom: '20px' }}>
         <button 
-          onClick={checkGameStatus}
-          style={{
-            padding: '10px 20px',
-            fontSize: '14px',
-            backgroundColor: '#2196F3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginRight: '10px'
-          }}
-        >
-          Check Game State
-        </button>
-
-        <button 
           onClick={callTimeout}
-          disabled={isTimerActive}
+          disabled={!canCallTimeout}
           style={{
             padding: '10px 20px',
             fontSize: '14px',
-            backgroundColor: isTimerActive ? '#ccc' : '#f44336',
+            backgroundColor: canCallTimeout ? '#f44336' : '#ccc',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: isTimerActive ? 'not-allowed' : 'pointer',
-            opacity: isTimerActive ? 0.6 : 1
+            cursor: canCallTimeout ? 'pointer' : 'not-allowed',
+            opacity: canCallTimeout ? 1 : 0.6
           }}
         >
-          Call Timeout
+          {canCallTimeout ? 'Call Timeout' : 'Wait for Timer to Expire'}
         </button>
       </div>
 
@@ -76,17 +64,18 @@ export const Player2WaitView = ({ gameState }: Player2WaitViewProps) => {
         color: '#155724'
       }}>
         <h4>Move Already Played</h4>
-        <p>You played: <strong>Move {selectedMove}</strong></p>
+        <p>You played: <strong>{player2Move}</strong></p>
         <p>Waiting for Player 1 to reveal their move...</p>
+        
+        {gameInfo?.c2 > 0 && (
+          <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+            <p><strong>Game Status:</strong></p>
+            <p>• Player 2 Move: <strong>{moves[gameInfo.c2]}</strong></p>
+            <p>• Player 1 Move: <strong>Hidden (committed)</strong></p>
+          </div>
+        )}
       </div>
 
-      {warningMessage && (
-        <Warning 
-          message={warningMessage} 
-          type={warningType} 
-          onClose={() => setWarningMessage("")}
-        />
-      )}
     </div>
   );
 };

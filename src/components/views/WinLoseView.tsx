@@ -1,4 +1,3 @@
-import { Warning } from "../shared/Warning";
 import type { GameContextType } from "../../hooks/useGameState";
 
 interface WinLoseViewProps {
@@ -10,11 +9,13 @@ interface WinLoseViewProps {
 export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
   const {
     gameInfo,
-    warningMessage,
-    warningType,
-    setWarningMessage,
+    selectedMove,
     setCurrentView
   } = gameState;
+
+  const moves = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];
+  const player1Move = selectedMove > 0 ? moves[selectedMove] : 'Unknown';
+  const player2Move = gameInfo?.c2 > 0 ? moves[gameInfo.c2] : 'Unknown';
 
   const handleNewGame = () => {
     setCurrentView('landing');
@@ -49,8 +50,14 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
         <h3>Game Summary</h3>
         <p><strong>Player 1:</strong> {gameInfo?.j1Address}</p>
         <p><strong>Player 2:</strong> {gameInfo?.j2Address}</p>
-        <p><strong>Stake:</strong> {gameInfo?.stake} ETH</p>
+        <p><strong>Stake:</strong> {gameInfo?.originalStake || gameInfo?.stake} ETH</p>
         <p><strong>Contract:</strong> {gameInfo?.contractAddress}</p>
+        
+        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#e9ecef', borderRadius: '4px' }}>
+          <h4>Moves Played</h4>
+          <p><strong>Player 1:</strong> {player1Move}</p>
+          <p><strong>Player 2:</strong> {player2Move}</p>
+        </div>
       </div>
 
       <button
@@ -70,13 +77,6 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
         Play Again
       </button>
 
-      {warningMessage && (
-        <Warning 
-          message={warningMessage} 
-          type={warningType} 
-          onClose={() => setWarningMessage("")}
-        />
-      )}
     </div>
   );
 };
