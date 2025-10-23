@@ -81,14 +81,6 @@ function App() {
 	// Views that should show GameInfoDisplay
 	const showGameInfo = ['player1-wait', 'player1-reveal', 'player2-play', 'player2-wait'].includes(currentView);
 	
-	// Debug logging
-	console.log("App - GameInfoDisplay state:", { 
-		currentView, 
-		showGameInfo, 
-		hasGameInfo: !!gameInfo,
-		gameInfoRole: gameInfo?.playerRole 
-	});
-	
 	// Views that should show Back to Menu button
 	const showBackButton = !['landing', 'player1-win', 'player1-lose', 'player2-win', 'player2-lose'].includes(currentView);
 
