@@ -144,10 +144,13 @@ export const useGameState = (): GameContextType => {
   // Determine winner by parsing transaction history
   const determineWinner = async (j1Address: string, j2Address: string, c2: number, userAddress: string) => {
     try {
-      // Get recent transactions to the contract (last 5000 blocks)
-      const latestBlock = await provider!.getBlockNumber();
-      const fromBlock = Math.max(0, Number(latestBlock) - 5000);
-      const filter = { address: gameInfo!.contractAddress, fromBlock, toBlock: 'latest' };
+      // Get recent transactions to the contract
+      const filter = {
+        address: gameInfo!.contractAddress,
+        fromBlock: -1000, // Last 1000 blocks
+        toBlock: 'latest'
+      };
+      
       const logs = await provider!.getLogs(filter);
       
       // Find the most recent transaction that ended the game
@@ -157,19 +160,8 @@ export const useGameState = (): GameContextType => {
           const tx = await provider!.getTransaction(log.transactionHash);
           if (tx && tx.to === gameInfo!.contractAddress) {
             // Decode the transaction input to see which function was called
-            const iface = new ethers.Interface(abi);
-            const decoded = iface.parseTransaction(tx);
+            const decoded = new ethers.Interface(abi).parseTransaction(tx);
             if (decoded && (decoded.name === 'solve' || decoded.name === 'j1Timeout' || decoded.name === 'j2Timeout')) {
-              // Optional: fetch receipt for extra context
-              const receipt = await provider!.getTransactionReceipt(tx.hash);
-              console.debug('Ending tx:', {
-                hash: tx.hash,
-                from: tx.from,
-                name: decoded.name,
-                blockNumber: receipt?.blockNumber,
-                status: receipt?.status,
-                gasUsed: receipt?.gasUsed?.toString()
-              });
               lastEndingTransaction = { tx, decoded };
               break;
             }
