@@ -144,32 +144,24 @@ export const useGameState = (): GameContextType => {
   // Determine winner by parsing transaction history
   const determineWinner = async (j1Address: string, j2Address: string, c2: number, userAddress: string) => {
     try {
-      // Get recent transactions to the contract (last 5000 blocks)
-      const latestBlock = await provider!.getBlockNumber();
-      const fromBlock = Math.max(0, Number(latestBlock) - 5000);
-      const filter = { address: gameInfo!.contractAddress, fromBlock, toBlock: 'latest' };
+      // Get recent transactions to the contract
+      const filter = {
+        address: gameInfo!.contractAddress,
+        fromBlock: -1000, // Last 1000 blocks
+        toBlock: 'latest'
+      };
+      
       const logs = await provider!.getLogs(filter);
-      const iface = new ethers.Interface(abi);
-
+      
       // Find the most recent transaction that ended the game
-      let lastEndingTransaction: { tx: any; decoded: any } | null = null;
+      let lastEndingTransaction = null;
       for (const log of logs.reverse()) {
         try {
           const tx = await provider!.getTransaction(log.transactionHash);
           if (tx && tx.to === gameInfo!.contractAddress) {
             // Decode the transaction input to see which function was called
-            const decoded = iface.parseTransaction(tx);
+            const decoded = new ethers.Interface(abi).parseTransaction(tx);
             if (decoded && (decoded.name === 'solve' || decoded.name === 'j1Timeout' || decoded.name === 'j2Timeout')) {
-              const receipt = await provider!.getTransactionReceipt(tx.hash);
-              // Basic tracing for debugging end-of-game
-              console.debug('Ending tx:', {
-                hash: tx.hash,
-                from: tx.from,
-                name: decoded.name,
-                blockNumber: receipt?.blockNumber,
-                status: receipt?.status,
-                gasUsed: receipt?.gasUsed?.toString()
-              });
               lastEndingTransaction = { tx, decoded };
               break;
             }
@@ -179,12 +171,8 @@ export const useGameState = (): GameContextType => {
           continue;
         }
       }
-
-      if (!lastEndingTransaction) {
-        console.warn('No ending transaction found in recent history');
-        return;
-      }
-
+     
+      
       const { decoded } = lastEndingTransaction;
       const isPlayer1 = userAddress.toLowerCase() === j1Address.toLowerCase();
       const isPlayer2 = userAddress.toLowerCase() === j2Address.toLowerCase();
@@ -224,7 +212,6 @@ export const useGameState = (): GameContextType => {
       
       setWarningType('info');
     } catch (error) {
-      console.error('determineWinner error', error);
       setWarningMessage("Game ended but couldn't determine winner. Check your wallet balance.");
       setWarningType('warning');
       setCurrentView(userAddress.toLowerCase() === j1Address.toLowerCase() ? 'player1-win' : 'player2-win');
@@ -469,13 +456,7 @@ export const useGameState = (): GameContextType => {
       // Update game info and switch to wait view
       await checkGameStatus();
       setCurrentView('player2-wait');
-    } catch (err: any) {
-      console.error('playMove error', {
-        message: err?.message,
-        shortMessage: err?.shortMessage,
-        data: err?.data,
-        code: err?.code
-      });
+    } catch (error) {
       setWarningMessage("Failed to submit move");
       setWarningType('error');
     }
@@ -497,13 +478,7 @@ export const useGameState = (): GameContextType => {
       } else {
         setCurrentView('player2-win');
       }
-    } catch (err: any) {
-      console.error('callTimeout error', {
-        message: err?.message,
-        shortMessage: err?.shortMessage,
-        data: err?.data,
-        code: err?.code
-      });
+    } catch (err: unknown) {
       setWarningMessage("Failed to call timeout");
       setWarningType('error');
     }
@@ -517,13 +492,7 @@ export const useGameState = (): GameContextType => {
       await tx.wait();
       // Check game status to determine winner
       await checkGameStatus();
-    } catch (err: any) {
-      console.error('revealMove error', {
-        message: err?.message,
-        shortMessage: err?.shortMessage,
-        data: err?.data,
-        code: err?.code
-      });
+    } catch (err: unknown) {
       setWarningMessage("Failed to reveal move");
       setWarningType('error');
     }
