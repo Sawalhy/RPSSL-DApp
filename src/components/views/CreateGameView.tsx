@@ -67,11 +67,6 @@ export const CreateGameView = ({ gameState }: CreateGameViewProps) => {
           onClick={deployContract}
           style={{
             padding: '10px 20px',
-            fontSize: '14px',
-            backgroundColor: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
             cursor: 'pointer'
           }}
         >

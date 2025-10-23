@@ -5,71 +5,50 @@ interface WarningProps {
 }
 
 export const Warning = ({ message, type = 'warning', onClose }: WarningProps) => {
-	const getStyle = () => {
+	const getBorderColor = () => {
 		switch (type) {
 			case 'error':
-				return {
-					backgroundColor: '#f8d7da',
-					border: '2px solid #dc3545',
-					color: '#721c24'
-				};
+				return 'red';
 			case 'warning':
-				return {
-					backgroundColor: '#fff3cd',
-					border: '2px solid #ffc107',
-					color: '#856404'
-				};
+				return 'orange';
 			case 'info':
-				return {
-					backgroundColor: '#d1ecf1',
-					border: '2px solid #17a2b8',
-					color: '#0c5460'
-				};
+				return 'blue';
 			default:
-				return {
-					backgroundColor: '#fff3cd',
-					border: '2px solid #ffc107',
-					color: '#856404'
-				};
+				return 'orange';
 		}
 	};
-
-	const style = getStyle();
 
 	return (
 		<div style={{
 			marginTop: '20px',
-			padding: '15px',
-			borderRadius: '8px',
+			padding: '10px',
+			border: `2px solid ${getBorderColor()}`,
 			position: 'relative',
 			width: '50%',
-			margin: '20px auto 0',
-			...style
+			margin: '20px auto 0'
 		}}>
 			{onClose && (
 				<button
 					onClick={onClose}
 					style={{
 						position: 'absolute',
-						top: '10px',
-						right: '10px',
+						top: '5px',
+						right: '5px',
 						background: 'none',
 						border: 'none',
 						fontSize: '18px',
-						cursor: 'pointer',
-						color: style.color,
-						opacity: 0.7
+						cursor: 'pointer'
 					}}
 				>
 					×
 				</button>
 			)}
-			<div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>
-				{type === 'error' && '❌ Error:'}
-				{type === 'warning' && '⚠️ Warning:'}
-				{type === 'info' && 'ℹ️ Info:'}
+			<div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+				{type === 'error' && 'Error:'}
+				{type === 'warning' && 'Warning:'}
+				{type === 'info' && 'Info:'}
 			</div>
-			<div style={{ fontSize: '14px', whiteSpace: 'pre-line' }}>
+			<div style={{ whiteSpace: 'pre-line' }}>
 				{message}
 			</div>
 		</div>

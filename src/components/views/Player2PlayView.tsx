@@ -31,11 +31,6 @@ export const Player2PlayView = ({ gameState }: Player2PlayViewProps) => {
           onClick={playMove}
           style={{
             padding: '10px 20px',
-            fontSize: '14px',
-            backgroundColor: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
             cursor: 'pointer'
           }}
         >

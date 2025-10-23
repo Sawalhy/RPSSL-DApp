@@ -9,7 +9,6 @@ import { Player2WaitView } from "./components/views/Player2WaitView";
 import { WinLoseView } from "./components/views/WinLoseView";
 import { Warning } from "./components/shared/Warning";
 import { GameInfoDisplay } from "./components/shared/GameInfoDisplay";
-import { DeploymentLoading } from "./components/shared/DeploymentLoading";
 
 function App() {
 	const gameState = useGameState();
@@ -21,7 +20,6 @@ function App() {
 		selectedMove, 
 		warningMessage, 
 		warningType, 
-		isDeploying,
 		setWarningMessage 
 	} = gameState;
 
@@ -52,22 +50,15 @@ function App() {
 				return (
 					<div style={{ textAlign: 'center', padding: '50px' }}>
 						<h1>Rock Paper Scissors Spock Lizard</h1>
-						<p style={{ marginBottom: '30px', fontSize: '18px', color: '#666' }}>
+						<p style={{ marginBottom: '30px' }}>
 							Choose your role to start playing
 						</p>
 						<div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
 							<button
 								onClick={() => setCurrentView('create-game')}
 								style={{
-									padding: '15px 30px',
-									fontSize: '16px',
-									backgroundColor: '#4CAF50',
-									color: 'white',
-									border: 'none',
-									borderRadius: '8px',
-									cursor: 'pointer',
-									boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)',
-									transition: 'all 0.2s ease'
+									padding: '10px 20px',
+									cursor: 'pointer'
 								}}
 							>
 								Create Game
@@ -75,15 +66,8 @@ function App() {
 							<button
 								onClick={() => setCurrentView('join-game')}
 								style={{
-									padding: '15px 30px',
-									fontSize: '16px',
-									backgroundColor: '#007bff',
-									color: 'white',
-									border: 'none',
-									borderRadius: '8px',
-									cursor: 'pointer',
-									boxShadow: '0 4px 8px rgba(0, 123, 255, 0.3)',
-									transition: 'all 0.2s ease'
+									padding: '10px 20px',
+									cursor: 'pointer'
 								}}
 							>
 								Join Game
@@ -134,25 +118,18 @@ function App() {
 			{/* Back to Menu Button */}
 			{showBackButton && (
 				<div style={{ textAlign: 'center', marginTop: '20px' }}>
-						<button
+					<button
 						onClick={() => setCurrentView('landing')}
 						style={{
 							padding: '10px 20px',
-							fontSize: '14px',
-							backgroundColor: '#666',
-							color: 'white',
-							border: 'none',
-							borderRadius: '4px',
 							cursor: 'pointer'
 						}}
 					>
 						Back to Menu
-						</button>
+					</button>
 				</div>
 			)}
 
-			{/* Deployment Loading Overlay */}
-			<DeploymentLoading isDeploying={isDeploying} />
 		</div>
 	);
 }

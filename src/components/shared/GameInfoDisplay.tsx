@@ -18,10 +18,8 @@ export const GameInfoDisplay = ({
   return (
     <div style={{
       marginTop: '20px',
-      padding: '15px',
-      backgroundColor: '#f8f9fa',
-      border: '1px solid #dee2e6',
-      borderRadius: '8px',
+      padding: '10px',
+      border: '1px solid #000',
       width: '75%',
       margin: '20px auto 0',
       textAlign: 'center'
@@ -32,7 +30,7 @@ export const GameInfoDisplay = ({
       <div><strong>Player 1:</strong> {gameInfo.j1Address}</div>
       <div><strong>Player 2:</strong> {gameInfo.j2Address}</div>
       <div><strong>Player 2 Move:</strong> {gameInfo.c2 > 0 ? moves[gameInfo.c2] : 'Not played yet'}</div>
-      <div style={{ fontSize: '12px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
+      <div style={{ fontSize: '12px', marginTop: '10px', fontStyle: 'italic' }}>
         Game status refreshes automatically every 60 seconds
       </div>
       
@@ -40,10 +38,7 @@ export const GameInfoDisplay = ({
         <div style={{
           marginTop: '15px',
           padding: '10px',
-          backgroundColor: '#fff3cd',
-          border: '2px solid #ffc107',
-          borderRadius: '4px',
-          color: '#856404'
+          border: '2px solid #000'
         }}>
           <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
             ⚠️ IMPORTANT: Save Your Salt!

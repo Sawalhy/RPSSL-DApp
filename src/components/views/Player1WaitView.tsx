@@ -7,16 +7,11 @@ interface Player1WaitViewProps {
 
 export const Player1WaitView = ({ gameState }: Player1WaitViewProps) => {
   const {
-    gameInfo,
-    selectedMove,
     timeLeft,
     isTimerActive,
     callTimeout
   } = gameState;
 
-  const moves = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];
-  const player1Move = selectedMove > 0 ? moves[selectedMove] : 'Unknown';
-  
   // Calculate if timeout button should be enabled
   const canCallTimeout = !isTimerActive || timeLeft <= 0;
 
@@ -30,13 +25,7 @@ export const Player1WaitView = ({ gameState }: Player1WaitViewProps) => {
           disabled={!canCallTimeout}
           style={{
             padding: '10px 20px',
-            fontSize: '14px',
-            backgroundColor: canCallTimeout ? '#f44336' : '#ccc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: canCallTimeout ? 'pointer' : 'not-allowed',
-            opacity: canCallTimeout ? 1 : 0.6
+            cursor: canCallTimeout ? 'pointer' : 'not-allowed'
           }}
         >
           {canCallTimeout ? 'Call Timeout' : 'Wait for Timer to Expire'}
@@ -51,25 +40,6 @@ export const Player1WaitView = ({ gameState }: Player1WaitViewProps) => {
           subtitle="Time for Player 2 to play their move"
         />
       )}
-
-      <div style={{
-        marginTop: '20px',
-        padding: '15px',
-        backgroundColor: '#d4edda',
-        border: '1px solid #c3e6cb',
-        borderRadius: '8px',
-        color: '#155724'
-      }}>
-        <h4>Move Committed</h4>
-        <p>You committed: <strong>{player1Move}</strong></p>
-        <p>Waiting for Player 2 to play their move...</p>
-        
-        <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-          <p><strong>Game Status:</strong></p>
-          <p>• Player 1 Move: <strong>{player1Move} (committed)</strong></p>
-          <p>• Player 2 Move: <strong>Not played yet</strong></p>
-        </div>
-      </div>
 
     </div>
   );
