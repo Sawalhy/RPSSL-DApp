@@ -1,4 +1,7 @@
 import type { GameContextType } from "../../hooks/useGameState";
+import { useWallet } from "../../hooks/useWallet";
+import { WalletConnectionPrompt } from "../shared/WalletConnectionPrompt";
+import { AddressInput } from "../shared/AddressInput";
 
 interface JoinGameViewProps {
   gameState: GameContextType;
@@ -13,7 +16,15 @@ export const JoinGameView = ({ gameState }: JoinGameViewProps) => {
     checkGameStatus
   } = gameState;
 
+  const { isConnected } = useWallet();
+
   const handleJoinGame = async () => {
+    if (!isConnected) {
+      setWarningMessage("Please connect your wallet first");
+      setWarningType('error');
+      return;
+    }
+
     if (!gameInfo?.contractAddress) {
       setWarningMessage("Please enter a contract address");
       setWarningType('error');
@@ -34,30 +45,27 @@ export const JoinGameView = ({ gameState }: JoinGameViewProps) => {
     <div>
       <h3>Join Existing Game</h3>
       
-      <div style={{ marginBottom: '10px' }}>
-        <label htmlFor="contractAddress">Contract Address:</label>
-        <input
-          id="contractAddress"
-          type="text"
-          value={gameInfo?.contractAddress || ""}
-          onChange={(e) => setGameInfo({ ...gameInfo!, contractAddress: e.target.value })}
-          placeholder="0x..."
-          style={{
-            marginLeft: '10px',
-            padding: '5px',
-            width: '300px',
-            fontFamily: 'monospace'
-          }}
+      {!isConnected ? (
+        <WalletConnectionPrompt 
+          title="Connect Your Wallet"
+          description="Please connect your MetaMask wallet to join a game."
         />
-        <button 
-          onClick={handleJoinGame}
-          style={{ marginLeft: '10px', padding: '5px 10px' }}
-        >
-          Join Game
-        </button>
-      </div>
-
-
+      ) : (
+        <div style={{ marginBottom: '20px' }}>
+          <AddressInput
+            id="contractAddress"
+            label="Contract Address"
+            value={gameInfo?.contractAddress || ""}
+            onChange={(value) => setGameInfo({ ...gameInfo!, contractAddress: value })}
+          />
+          <button 
+            onClick={handleJoinGame}
+            style={{ marginLeft: '10px', padding: '5px 10px' }}
+          >
+            Join Game
+          </button>
+        </div>
+      )}
     </div>
   );
 };
