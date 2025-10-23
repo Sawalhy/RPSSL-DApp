@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
-import { parseEther, formatEther, type Address, decodeFunctionData } from "viem";
+import { parseEther, formatEther, type Address, decodeFunctionData, keccak256, encodePacked } from "viem";
 import { abi } from "../contract/abi";
 import { bytecode } from "../contract/bytecode";
 
@@ -87,10 +87,19 @@ export const useGameState = (): GameContextType => {
   const [warningMessage, setWarningMessage] = useState<string>("");
   const [warningType, setWarningType] = useState<'error' | 'warning' | 'info'>('warning');
 
+  // Custom function to set selected move and generate salt
+  const handleSetSelectedMove = (move: number) => {
+    setSelectedMove(move);
+    // Generate cryptographically secure salt (32 bytes = 256 bits)
+    const saltBytes = crypto.getRandomValues(new Uint8Array(32));
+    const saltHex = '0x' + Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    setGeneratedSalt(saltHex);
+    console.log('Move selected:', move, 'Salt generated:', saltHex);
+  };
+
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-
     if (isTimerActive && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft((timeLeft) => timeLeft - 1);
@@ -339,12 +348,23 @@ export const useGameState = (): GameContextType => {
       return;
     }
 
+    if (!gameInfo.j2Address) {
+      setWarningMessage("Please enter Player 2's address");
+      setWarningType('error');
+      return;
+    }
+
     setWarningMessage("");
     try {
+      // Generate keccak256 hash of move and salt
+      const saltBigInt = BigInt(generatedSalt);
+      const packed = encodePacked(['uint8', 'uint256'], [selectedMove, saltBigInt]);
+      const c1Hash = keccak256(packed);
+
       const hash = await walletClient.deployContract({
         abi: abi as any,
         bytecode: bytecode as `0x${string}`,
-        args: [parseEther(stakeAmount), generatedSalt as `0x${string}`] as any,
+        args: [c1Hash, gameInfo.j2Address] as any,
         value: parseEther(stakeAmount),
       } as any);
 
@@ -357,7 +377,7 @@ export const useGameState = (): GameContextType => {
           j2Address: "0x0000000000000000000000000000000000000000",
         stake: stakeAmount,
           originalStake: stakeAmount,
-          c1Hash: generatedSalt,
+          c1Hash: c1Hash,
         c2: 0,
         lastAction: Math.floor(Date.now() / 1000),
         playerRole: 'player1'
@@ -485,7 +505,7 @@ export const useGameState = (): GameContextType => {
     // Actions
     setCurrentView,
     setGameInfo,
-    setSelectedMove,
+    setSelectedMove: handleSetSelectedMove,
     setStakeAmount,
     setGeneratedSalt,
     setTimeLeft,
