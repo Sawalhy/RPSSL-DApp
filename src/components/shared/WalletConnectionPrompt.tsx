@@ -12,17 +12,26 @@ export const WalletConnectionPrompt = ({
   const { connectWallet, isConnecting } = useWallet();
 
   return (
-    <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '5px' }}>
-      <h4>{title}</h4>
-      <p>{description}</p>
+    <div style={{
+      marginTop: '20px',
+      padding: '10px',
+      border: '2px solid #007bff',
+      borderRadius: '8px',
+      width: '50%',
+      margin: '20px auto 0',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+        {title}
+      </div>
+      <div style={{ marginBottom: '10px', fontSize: '14px' }}>
+        {description}
+      </div>
       <button 
         onClick={connectWallet}
         disabled={isConnecting}
         style={{ 
-          padding: '10px 20px', 
-          backgroundColor: '#f0f0f0', 
-          border: '1px solid #ccc',
-          borderRadius: '5px',
+          padding: '10px 20px',
           cursor: isConnecting ? 'not-allowed' : 'pointer'
         }}
       >

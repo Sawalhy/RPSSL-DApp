@@ -1,5 +1,4 @@
 import { MoveSelector } from "../shared/MoveSelector";
-import { Timer } from "../shared/Timer";
 import { WalletConnectionPrompt } from "../shared/WalletConnectionPrompt";
 import { AddressInput } from "../shared/AddressInput";
 import type { GameContextType } from "../../hooks/useGameState";
@@ -18,8 +17,7 @@ export const CreateGameView = ({ gameState }: CreateGameViewProps) => {
     setSelectedMove,
     setStakeAmount,
     deployContract,
-    setWarningMessage,
-    setWarningType
+    setWarningMessage
   } = gameState;
 
   const { isConnected } = useWallet();
@@ -27,7 +25,6 @@ export const CreateGameView = ({ gameState }: CreateGameViewProps) => {
   const handleDeployContract = async () => {
     if (!isConnected) {
       setWarningMessage("Please connect your wallet first");
-      setWarningType('error');
       return;
     }
     await deployContract();

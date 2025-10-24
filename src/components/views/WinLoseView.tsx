@@ -1,4 +1,5 @@
 import type { GameContextType } from "../../hooks/useGameState";
+import { moveNames } from "../../constants/moves";
 
 interface WinLoseViewProps {
   gameState: GameContextType;
@@ -13,14 +14,13 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
     setCurrentView
   } = gameState;
 
-  const moves = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];
-  const player1Move = gameInfo?.c1 > 0 ? moves[gameInfo.c1] : 'Unknown';
-  const player2Move = gameInfo?.c2 > 0 ? moves[gameInfo.c2] : 'Unknown';
+  const player1Move = gameInfo?.c1 > 0 ? moveNames[gameInfo.c1] : 'Unknown';
+  const player2Move = gameInfo?.c2 > 0 ? moveNames[gameInfo.c2] : 'Unknown';
   
   // For the current player, use selectedMove if available, otherwise use the stored move
   const currentPlayerMove = player === 'player1' 
-    ? (selectedMove > 0 ? moves[selectedMove] : player1Move)
-    : (selectedMove > 0 ? moves[selectedMove] : player2Move);
+    ? (selectedMove > 0 ? moveNames[selectedMove] : player1Move)
+    : (selectedMove > 0 ? moveNames[selectedMove] : player2Move);
   const opponentMove = player === 'player1' ? player2Move : player1Move;
 
   const handleNewGame = () => {

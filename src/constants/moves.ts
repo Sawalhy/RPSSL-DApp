@@ -6,3 +6,5 @@ export const moves = [
 	{ id: 4, name: "Spock", value: 4 },
 	{ id: 5, name: "Lizard", value: 5 }
 ];
+
+export const moveNames = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];

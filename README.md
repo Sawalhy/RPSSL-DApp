@@ -6,7 +6,7 @@ index 0000000000000000000000000000000000000000..ad573f3072d3e96344dd45158e93295b
 @@ -0,0 +1,75 @@
 +# RPSSL DApp
 +
-+A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock game defined by `RPS.sol`. It guides two counterparties through creating, joining, and resolving a single match on the Ethereum Sepolia testnet using MetaMask or any other injected wallet supported by the first wagmi connector.
++A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock game defined by `RPS.sol`. It guides two counterparties through creating, joining, and resolving a single match on the Ethereum Sepolia testnet using MetaMask.
 +
 +---
 +
@@ -27,13 +27,13 @@ index 0000000000000000000000000000000000000000..ad573f3072d3e96344dd45158e93295b
 +## Project Overview
 +- **Purpose:** Provide a non-custodial interface for two players to execute the Rock–Paper–Scissors–Lizard–Spock (RPSSL) smart contract without modifying the on-chain logic.
 +- **Supported Network:** Ethereum Sepolia testnet. The frontend polls Sepolia block data via wagmi and Blockscout-compatible endpoints.
-+- **Wallet Compatibility:** MetaMask or any wallet exposed as the first wagmi connector (MetaMask by default).
++- **Wallet Compatibility:** MetaMask only.
 +- **Smart Contract:** `RPS.sol` supplied with the exercise (bundled under `src/Solidity/RPS.sol`).
 +
 +## Prerequisites
 +- Node.js 18+
 +- npm or pnpm
-+- MetaMask (or a similar wallet) configured for Sepolia and funded with test ETH
++- MetaMask configured for Sepolia and funded with test ETH
 +
 +## Local Setup
 +1. Install dependencies:

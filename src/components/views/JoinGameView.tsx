@@ -12,7 +12,6 @@ export const JoinGameView = ({ gameState }: JoinGameViewProps) => {
     gameInfo,
     setGameInfo,
     setWarningMessage,
-    setWarningType,
     checkGameStatus
   } = gameState;
 
@@ -21,20 +20,17 @@ export const JoinGameView = ({ gameState }: JoinGameViewProps) => {
   const handleJoinGame = async () => {
     if (!isConnected) {
       setWarningMessage("Please connect your wallet first");
-      setWarningType('error');
       return;
     }
 
     if (!gameInfo?.contractAddress) {
       setWarningMessage("Please enter a contract address");
-      setWarningType('error');
       return;
     }
     
     // Validate address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(gameInfo.contractAddress)) {
       setWarningMessage("Invalid contract address format");
-      setWarningType('error');
       return;
     }
     

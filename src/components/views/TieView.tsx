@@ -1,4 +1,5 @@
 import type { GameContextType } from "../../hooks/useGameState";
+import { moveNames } from "../../constants/moves";
 
 interface TieViewProps {
   gameState: GameContextType;
@@ -11,12 +12,11 @@ export const TieView = ({ gameState }: TieViewProps) => {
     setCurrentView
   } = gameState;
 
-  const moves = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];
-  const player1Move = gameInfo?.c1 > 0 ? moves[gameInfo.c1] : 'Unknown';
-  const player2Move = gameInfo?.c2 > 0 ? moves[gameInfo.c2] : 'Unknown';
+  const player1Move = gameInfo?.c1 > 0 ? moveNames[gameInfo.c1] : 'Unknown';
+  const player2Move = gameInfo?.c2 > 0 ? moveNames[gameInfo.c2] : 'Unknown';
   
   // For the current player, use selectedMove if available, otherwise use the stored move
-  const currentPlayerMove = selectedMove > 0 ? moves[selectedMove] : (gameInfo?.playerRole === 'player1' ? player1Move : player2Move);
+  const currentPlayerMove = selectedMove > 0 ? moveNames[selectedMove] : (gameInfo?.playerRole === 'player1' ? player1Move : player2Move);
   const opponentMove = gameInfo?.playerRole === 'player1' ? player2Move : player1Move;
 
   const handleNewGame = () => {

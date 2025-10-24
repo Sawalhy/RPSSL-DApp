@@ -1,28 +1,15 @@
 interface WarningProps {
 	message: string;
-	type?: 'error' | 'warning' | 'info';
 	onClose?: () => void;
 }
 
-export const Warning = ({ message, type = 'warning', onClose }: WarningProps) => {
-	const getBorderColor = () => {
-		switch (type) {
-			case 'error':
-				return 'red';
-			case 'warning':
-				return 'orange';
-			case 'info':
-				return 'blue';
-			default:
-				return 'orange';
-		}
-	};
+export const Warning = ({ message, onClose }: WarningProps) => {
 
 	return (
 		<div style={{
 			marginTop: '20px',
 			padding: '10px',
-			border: `2px solid ${getBorderColor()}`,
+			border: '2px solid red',
 			position: 'relative',
 			width: '50%',
 			margin: '20px auto 0'
@@ -44,9 +31,7 @@ export const Warning = ({ message, type = 'warning', onClose }: WarningProps) =>
 				</button>
 			)}
 			<div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-				{type === 'error' && 'Error:'}
-				{type === 'warning' && 'Warning:'}
-				{type === 'info' && 'Info:'}
+				Error:
 			</div>
 			<div style={{ whiteSpace: 'pre-line' }}>
 				{message}
