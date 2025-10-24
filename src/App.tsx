@@ -17,10 +17,7 @@ function App() {
 		currentView, 
 		setCurrentView, 
 		gameInfo, 
-		generatedSalt, 
-		selectedMove, 
 		warningMessage, 
-		warningType, 
 		setWarningMessage 
 	} = gameState;
 
@@ -95,7 +92,6 @@ function App() {
 			{warningMessage && (
 				<Warning
 					message={warningMessage}
-					type={warningType}
 					onClose={() => setWarningMessage("")}
 				/>
 			)}
@@ -104,9 +100,6 @@ function App() {
 			{showGameInfo && gameInfo && (
 				<GameInfoDisplay
 					gameInfo={gameInfo}
-					generatedSalt={generatedSalt}
-					selectedMove={selectedMove}
-					showSalt={gameInfo.playerRole === 'player1'}
 				/>
 			)}
 			

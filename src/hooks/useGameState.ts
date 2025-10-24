@@ -47,7 +47,6 @@ export interface GameContextType {
   
   // UI state
   warningMessage: string;
-  warningType: 'error' | 'warning' | 'info';
   
   // Actions
   setCurrentView: (view: GameState) => void;
@@ -58,7 +57,6 @@ export interface GameContextType {
   setTimeLeft: (time: number) => void;
   setIsTimerActive: (active: boolean) => void;
   setWarningMessage: (message: string) => void;
-  setWarningType: (type: 'error' | 'warning' | 'info') => void;
   
   // Game functions
   checkGameStatus: () => Promise<void>;
@@ -90,15 +88,29 @@ export const useGameState = (): GameContextType => {
   
   // UI state
   const [warningMessage, setWarningMessage] = useState<string>("");
-  const [warningType, setWarningType] = useState<'error' | 'warning' | 'info'>('warning');
 
-  // Custom function to set selected move and generate salt
+  // Load salt from localStorage on mount and when switching to create-game view
+  useEffect(() => {
+    if (currentView === 'create-game') {
+      const savedSalt = localStorage.getItem('rps-salt');
+      if (savedSalt) {
+        setGeneratedSalt(savedSalt);
+      }
+    }
+  }, [currentView]);
+
+  // Custom function to set selected move and generate salt (only for Player 1)
   const handleSetSelectedMove = (move: number) => {
     setSelectedMove(move);
-    // Generate cryptographically secure salt (32 bytes = 256 bits)
-    const saltBytes = crypto.getRandomValues(new Uint8Array(32));
-    const saltHex = '0x' + Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    setGeneratedSalt(saltHex);
+    // Only generate salt for Player 1 (create-game view)
+    if (currentView === 'create-game') {
+      // Generate cryptographically secure salt (32 bytes = 256 bits)
+      const saltBytes = crypto.getRandomValues(new Uint8Array(32));
+      const saltHex = '0x' + Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      setGeneratedSalt(saltHex);
+      // Store salt in localStorage for persistence across refreshes
+      localStorage.setItem('rps-salt', saltHex);
+    }
   };
 
   // Timer effect
@@ -122,7 +134,7 @@ export const useGameState = (): GameContextType => {
     setWarningMessage("");
   }, [currentView]);
 
-  // Automatic status checking every 10 seconds for active game states
+  // Automatic status checking every 2 seconds for active game states
   useEffect(() => {
     let statusInterval: NodeJS.Timeout | null = null;
     
@@ -131,7 +143,7 @@ export const useGameState = (): GameContextType => {
     if (activeStates.includes(currentView) && gameInfo?.contractAddress && isConnected) {
       statusInterval = setInterval(() => {
         checkGameStatus();
-      }, 3000); // Check every 3 seconds
+      }, 2000); // Check every 2 seconds
     }
 
     return () => {
@@ -182,8 +194,6 @@ export const useGameState = (): GameContextType => {
       const lastTxHash = await getLastContractTransaction(gameInfo.contractAddress);
       
       if (!lastTxHash) {
-        setWarningMessage("Could not find last transaction");
-        setWarningType('error');
         return;
       }
 
@@ -219,19 +229,20 @@ export const useGameState = (): GameContextType => {
         } else {
           setCurrentView('tie');
         }
+        
+        // Clear salt from localStorage when game ends
+        localStorage.removeItem('rps-salt');
       } 
     } catch (error) {
       console.error('Error determining winner:', error);
-      setWarningMessage("Could not determine winner");
-      setWarningType('error');
     }
   };
 
   // Local game winner determination logic (same as contract)
   const determineGameWinner = (c1: number, c2: number): number => {
     if (c1 === c2) return 0; // Tie
-    if (c1 === 0) return 2; // Player 1 didn't play
-    if (c2 === 0) return 1; // Player 2 didn't play
+    if (c1 === 0) return 2; 
+    if (c2 === 0) return 1;
     
     // Same parity: lower number wins
     if (c1 % 2 === c2 % 2) {
@@ -245,7 +256,6 @@ export const useGameState = (): GameContextType => {
   const checkGameStatus = async () => {
     if (!gameInfo?.contractAddress || !publicClient || !address) {
       setWarningMessage("No contract address provided or wallet not connected");
-      setWarningType('error');
       return;
     }
 
@@ -295,13 +305,11 @@ export const useGameState = (): GameContextType => {
       // Determine player role and state
       if (j1Address === "0x0000000000000000000000000000000000000000" && j2Address === "0x0000000000000000000000000000000000000000") {
         setWarningMessage("Unable to read contract data");
-        setWarningType('error');
         setCurrentView('join-game');
       } else if (j1Address !== "0x0000000000000000000000000000000000000000" && (j1Address as string).toLowerCase() === address.toLowerCase()) {
         // Player 1
         if (c2Value === 0) {
           setCurrentView('player1-wait');
-          setWarningMessage("");
           // Sync timer while waiting for Player 2 to play
           const timeSinceLastAction = Math.floor(Date.now() / 1000) - Number(lastAction);
           const remainingTime = Math.max(0, TIMEOUT_SECONDS - timeSinceLastAction);
@@ -309,8 +317,6 @@ export const useGameState = (): GameContextType => {
           setIsTimerActive(remainingTime > 0);
         } else {
           setCurrentView('player1-reveal');
-          setWarningMessage("Player 2 has played! Reveal your move to determine the winner.");
-          setWarningType('info');
           // Sync timer during reveal window
           const timeSinceLastAction = Math.floor(Date.now() / 1000) - Number(lastAction);
           const remainingTime = Math.max(0, TIMEOUT_SECONDS - timeSinceLastAction);
@@ -321,7 +327,6 @@ export const useGameState = (): GameContextType => {
         // Player 2
         if (c2Value === 0) {
           setCurrentView('player2-play');
-          setWarningMessage("");
           // Sync timer while Player 2 can still play
           const timeSinceLastAction = Math.floor(Date.now() / 1000) - Number(lastAction);
           const remainingTime = Math.max(0, TIMEOUT_SECONDS - timeSinceLastAction);
@@ -330,7 +335,6 @@ export const useGameState = (): GameContextType => {
         } else {
           // Player 2 has already played, waiting for Player 1 to reveal
           setCurrentView('player2-wait');
-          setWarningMessage("");
           // Initialize timer for Player 1's reveal phase
           const timeSinceLastAction = Math.floor(Date.now() / 1000) - Number(lastAction);
           const remainingTime = Math.max(0, TIMEOUT_SECONDS - timeSinceLastAction);
@@ -340,13 +344,11 @@ export const useGameState = (): GameContextType => {
       } else {
         // Not a player in this game
         setWarningMessage(`You are not a player in this game. This game is between Player 1 (${(j1Address as string).slice(0,6)}...${(j1Address as string).slice(-4)}) and Player 2 (${(j2Address as string).slice(0,6)}...${(j2Address as string).slice(-4)}).`);
-        setWarningType('warning');
         setCurrentView('join-game');
       }
 
     } catch (error) {
       setWarningMessage("Failed to check game status");
-      setWarningType('error');
     }
   };
 
@@ -354,17 +356,14 @@ export const useGameState = (): GameContextType => {
   const deployContract = async () => {
     if (!walletClient || !address) {
       setWarningMessage("Wallet not connected");
-        setWarningType('error');
         return;
       }
       
     if (!gameInfo.j2Address) {
       setWarningMessage("Please enter Player 2's address");
-        setWarningType('error');
         return;
       }
 
-    setWarningMessage("");
     try {
       // Generate keccak256 hash of move and salt
       const saltBigInt = BigInt(generatedSalt);
@@ -401,18 +400,11 @@ export const useGameState = (): GameContextType => {
       }
     } catch (error) {
       setWarningMessage("Failed to deploy contract");
-      setWarningType('error');
     }
   };
 
   // Play move function
   const playMove = async () => {
-    if (!walletClient || !gameInfo) {
-      setWarningMessage("Wallet not connected or no game info");
-      setWarningType('error');
-      return;
-    }
-
     try {
       const hash = await walletClient.writeContract({
         address: gameInfo.contractAddress as Address,
@@ -431,18 +423,11 @@ export const useGameState = (): GameContextType => {
       setCurrentView('player2-wait');
     } catch (error) {
       setWarningMessage("Failed to submit move");
-      setWarningType('error');
     }
   };
 
   // Call timeout function
   const callTimeout = async () => {
-    if (!walletClient || !gameInfo) {
-      setWarningMessage("Wallet not connected or no game info");
-      setWarningType('error');
-      return;
-    }
-
     // Check game status before calling timeout
     await checkGameStatus();
     try {
@@ -468,18 +453,11 @@ export const useGameState = (): GameContextType => {
       }
     } catch (err: unknown) {
       setWarningMessage("Failed to call timeout");
-      setWarningType('error');
     }
   };
 
   // Reveal move function
   const revealMove = async () => {
-    if (!walletClient || !gameInfo) {
-      setWarningMessage("Wallet not connected or no game info");
-      setWarningType('error');
-      return;
-    }
-
     try {
       const hash = await walletClient.writeContract({
         address: gameInfo.contractAddress as Address,
@@ -493,7 +471,6 @@ export const useGameState = (): GameContextType => {
       await checkGameStatus();
     } catch (err: unknown) {
       setWarningMessage("Failed to reveal move");
-      setWarningType('error');
     }
   };
 
@@ -511,7 +488,6 @@ export const useGameState = (): GameContextType => {
     
     // UI state
     warningMessage,
-    warningType,
     
     // Actions
     setCurrentView,
@@ -522,7 +498,6 @@ export const useGameState = (): GameContextType => {
     setTimeLeft,
     setIsTimerActive,
     setWarningMessage,
-    setWarningType,
     
     // Game functions
     checkGameStatus,

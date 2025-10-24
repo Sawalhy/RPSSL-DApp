@@ -2,16 +2,10 @@ import type { GameInfo } from "../../hooks/useGameState";
 
 interface GameInfoDisplayProps {
   gameInfo: GameInfo;
-  generatedSalt?: string;
-  selectedMove?: number;
-  showSalt?: boolean;
 }
 
 export const GameInfoDisplay = ({ 
-  gameInfo, 
-  generatedSalt, 
-  selectedMove, 
-  showSalt = false 
+  gameInfo
 }: GameInfoDisplayProps) => {
   const moves = ['', 'Rock', 'Paper', 'Scissors', 'Spock', 'Lizard'];
 
@@ -31,28 +25,8 @@ export const GameInfoDisplay = ({
       <div><strong>Player 2:</strong> {gameInfo.j2Address}</div>
       <div><strong>Player 2 Move:</strong> {gameInfo.c2 > 0 ? moves[gameInfo.c2] : 'Not played yet'}</div>
       <div style={{ fontSize: '12px', marginTop: '10px', fontStyle: 'italic' }}>
-        Game status refreshes automatically every 60 seconds
+        Game status refreshes automatically every 2 seconds
       </div>
-      
-      {showSalt && generatedSalt && (
-        <div style={{
-          marginTop: '15px',
-          padding: '10px',
-          border: '2px solid #000'
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-            ⚠️ IMPORTANT: Save Your Salt!
-          </div>
-          <div style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-            Salt: {generatedSalt}
-          </div>
-          {selectedMove && selectedMove > 0 && (
-            <div style={{ marginTop: '5px', fontSize: '12px' }}>
-              Committed Move: {moves[selectedMove]}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };
