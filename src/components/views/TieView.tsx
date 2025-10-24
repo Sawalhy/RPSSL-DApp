@@ -1,12 +1,10 @@
 import type { GameContextType } from "../../hooks/useGameState";
 
-interface WinLoseViewProps {
+interface TieViewProps {
   gameState: GameContextType;
-  isWin: boolean;
-  player: 'player1' | 'player2';
 }
 
-export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
+export const TieView = ({ gameState }: TieViewProps) => {
   const {
     gameInfo,
     selectedMove,
@@ -18,10 +16,8 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
   const player2Move = gameInfo?.c2 > 0 ? moves[gameInfo.c2] : 'Unknown';
   
   // For the current player, use selectedMove if available, otherwise use the stored move
-  const currentPlayerMove = player === 'player1' 
-    ? (selectedMove > 0 ? moves[selectedMove] : player1Move)
-    : (selectedMove > 0 ? moves[selectedMove] : player2Move);
-  const opponentMove = player === 'player1' ? player2Move : player1Move;
+  const currentPlayerMove = selectedMove > 0 ? moves[selectedMove] : (gameInfo?.playerRole === 'player1' ? player1Move : player2Move);
+  const opponentMove = gameInfo?.playerRole === 'player1' ? player2Move : player1Move;
 
   const handleNewGame = () => {
     setCurrentView('landing');
@@ -29,9 +25,7 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
 
   return (
     <div style={{ textAlign: 'center', padding: '50px' }}>
-      <h1>
-        {isWin ? 'You Won!' : 'You Lost!'}
-      </h1>
+      <h1>It's a Tie!</h1>
       
       <div style={{
         marginBottom: '30px',
@@ -50,6 +44,10 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
           <h4>Moves Played</h4>
           <p><strong>Your Move:</strong> {currentPlayerMove}</p>
           <p><strong>Opponent's Move:</strong> {opponentMove}</p>
+        </div>
+        
+        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f0f8ff', border: '1px solid #000' }}>
+          <p><strong>Result:</strong> Both players get their stake back!</p>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { Player1RevealView } from "./components/views/Player1RevealView";
 import { Player2PlayView } from "./components/views/Player2PlayView";
 import { Player2WaitView } from "./components/views/Player2WaitView";
 import { WinLoseView } from "./components/views/WinLoseView";
+import { TieView } from "./components/views/TieView";
 import { Warning } from "./components/shared/Warning";
 import { GameInfoDisplay } from "./components/shared/GameInfoDisplay";
 
@@ -45,6 +46,8 @@ function App() {
 				return <WinLoseView gameState={gameState} isWin={true} player="player2" />;
 			case 'player2-lose':
 				return <WinLoseView gameState={gameState} isWin={false} player="player2" />;
+			case 'tie':
+				return <TieView gameState={gameState} />;
 			case 'landing':
 			default:
 				return (
@@ -53,7 +56,7 @@ function App() {
 						<p style={{ marginBottom: '30px' }}>
 							Choose your role to start playing
 						</p>
-						<div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+						<div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
 							<button
 								onClick={() => setCurrentView('create-game')}
 								style={{
@@ -82,7 +85,7 @@ function App() {
 	const showGameInfo = ['player1-wait', 'player1-reveal', 'player2-play', 'player2-wait'].includes(currentView);
 	
 	// Views that should show Back to Menu button
-	const showBackButton = !['landing', 'player1-win', 'player1-lose', 'player2-win', 'player2-lose'].includes(currentView);
+	const showBackButton = !['landing', 'player1-win', 'player1-lose', 'player2-win', 'player2-lose', 'tie'].includes(currentView);
 
 	return (
 		<div className="App">

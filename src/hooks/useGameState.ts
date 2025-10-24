@@ -17,7 +17,8 @@ export type GameState =
   | 'player1-win'
   | 'player1-lose'
   | 'player2-win'
-  | 'player2-lose';
+  | 'player2-lose'
+  | 'tie';
 
 export interface GameInfo {
   contractAddress: string;
@@ -26,6 +27,7 @@ export interface GameInfo {
   stake: string;
   originalStake: string; // Store the original stake amount before game ends
   c1Hash: string;
+  c1: number; // Player 1's revealed move
   c2: number;
   lastAction: number;
   playerRole: 'player1' | 'player2' | null;
@@ -64,6 +66,9 @@ export interface GameContextType {
   playMove: () => Promise<void>;
   callTimeout: () => Promise<void>;
   revealMove: () => Promise<void>;
+  getLastContractTransaction: (contractAddress: string) => Promise<string | null>;
+  determineWinner: (j1Address: string, j2Address: string, c2: number, userAddress: string) => Promise<void>;
+  determineGameWinner: (c1: number, c2: number) => number;
 }
 
 export const useGameState = (): GameContextType => {
@@ -94,7 +99,6 @@ export const useGameState = (): GameContextType => {
     const saltBytes = crypto.getRandomValues(new Uint8Array(32));
     const saltHex = '0x' + Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     setGeneratedSalt(saltHex);
-    console.log('Move selected:', move, 'Salt generated:', saltHex);
   };
 
   // Timer effect
@@ -118,7 +122,7 @@ export const useGameState = (): GameContextType => {
     setWarningMessage("");
   }, [currentView]);
 
-  // Automatic status checking every 30 seconds for active game states
+  // Automatic status checking every 10 seconds for active game states
   useEffect(() => {
     let statusInterval: NodeJS.Timeout | null = null;
     
@@ -127,7 +131,7 @@ export const useGameState = (): GameContextType => {
     if (activeStates.includes(currentView) && gameInfo?.contractAddress && isConnected) {
       statusInterval = setInterval(() => {
         checkGameStatus();
-      }, 30000); // Check every 30 seconds
+      }, 3000); // Check every 3 seconds
     }
 
     return () => {
@@ -137,99 +141,104 @@ export const useGameState = (): GameContextType => {
     };
   }, [currentView, gameInfo?.contractAddress, isConnected]);
 
-  // Determine winner by parsing transaction history
+
+  // Find the last transaction on the contract using Blockscout V1 API
+  const getLastContractTransaction = async (contractAddress: string): Promise<string | null> => {
+    try {
+      const V1_BASE = 'https://eth-sepolia.blockscout.com/api';
+      
+      const url = new URL(V1_BASE);
+      url.searchParams.set('module', 'account');
+      url.searchParams.set('action', 'txlist');
+      url.searchParams.set('address', contractAddress);
+      url.searchParams.set('startblock', '0');
+      url.searchParams.set('endblock', '99999999');
+      url.searchParams.set('page', '1');
+      url.searchParams.set('offset', '1');
+      url.searchParams.set('sort', 'desc');
+      
+      const res = await fetch(url.toString());
+      if (!res.ok) return null;
+      
+      const data = await res.json();
+      if (data.status !== '1') return null;
+      
+      const tx = data.result?.[0];
+      return tx?.hash || null;
+    } catch (error) {
+      console.error('Error getting last contract transaction:', error);
+      return null;
+    }
+  };
+
+  // Determine winner locally based on the last transaction
   const determineWinner = async (j1Address: string, j2Address: string, c2: number, userAddress: string) => {
     if (!publicClient || !gameInfo) return;
 
+    const isPlayer1 = userAddress.toLowerCase() === j1Address.toLowerCase();
+    
     try {
-      // Get recent transactions to the contract (last 25 blocks ~5 minutes)
-      const latestBlock = await publicClient.getBlockNumber();
-      const fromBlock = latestBlock > 25n ? latestBlock - 25n : 0n;
+      // Get the last transaction on the contract
+      const lastTxHash = await getLastContractTransaction(gameInfo.contractAddress);
       
-      const logs = await publicClient.getLogs({
-        address: gameInfo.contractAddress as Address,
-        fromBlock,
-        toBlock: 'latest',
-      });
-      
-      // Find the most recent transaction that ended the game
-      let lastEndingTransaction = null;
-      for (const log of logs.reverse()) {
-        try {
-          const tx = await publicClient.getTransaction({ hash: log.transactionHash });
-          if (tx && tx.to?.toLowerCase() === gameInfo.contractAddress.toLowerCase()) {
-            // Decode the transaction input to see which function was called
-            const decoded = decodeFunctionData({
-              abi,
-              data: tx.input,
-            });
-            
-            if (decoded.functionName === 'solve' || decoded.functionName === 'j1Timeout' || decoded.functionName === 'j2Timeout') {
-              lastEndingTransaction = { tx, decoded };
-              break;
-            }
-          }
-        } catch (e) {
-          // Skip invalid transactions
-          continue;
-        }
-      }
-     
-      if (!lastEndingTransaction) {
-        setWarningMessage("Game ended but couldn't determine winner. Check your wallet balance.");
-        setWarningType('warning');
-        setCurrentView(userAddress.toLowerCase() === j1Address.toLowerCase() ? 'player1-win' : 'player2-win');
+      if (!lastTxHash) {
+        setWarningMessage("Could not find last transaction");
+        setWarningType('error');
         return;
       }
+
+      // Get the transaction details
+      const tx = await publicClient.getTransaction({ hash: lastTxHash as `0x${string}` });
       
-      const { decoded } = lastEndingTransaction;
-      const isPlayer1 = userAddress.toLowerCase() === j1Address.toLowerCase();
-      const isPlayer2 = userAddress.toLowerCase() === j2Address.toLowerCase();
-      
-      // Check transfer transactions to determine winner
-      const receipt = await publicClient.getTransactionReceipt({
-        hash: lastEndingTransaction.transactionHash as `0x${string}`,
+      // Decode the function call
+      const decoded = decodeFunctionData({
+        abi: abi as any,
+        data: tx.input,
       });
-      
-      // Look for transfers in the logs
-      const transfers = receipt.logs.filter(log => 
-        (log as any).topics && (log as any).topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' // Transfer event
-      );
-      
-      if (transfers.length === 1) {
-        // Single transfer - check if it's 2*stake (winner) or just stake (timeout)
-        const transferValue = BigInt(transfers[0].data);
-        const stakeValue = parseEther(gameInfo.stake);
+
+
+      if (decoded.functionName === 'j1Timeout') {
+        setCurrentView(isPlayer1 ? 'player1-lose' : 'player2-win');
+      } else if (decoded.functionName === 'j2Timeout') {
+        setCurrentView(isPlayer1 ? 'player1-win' : 'player2-lose');
+      } else if (decoded.functionName === 'solve') {
+        const c1 = Number(decoded.args[0]);
+        const winner = determineGameWinner(c1, c2);
         
-        if (transferValue === stakeValue * 2n) {
-          // Winner gets 2*stake
-          const winnerAddress = (transfers[0] as any).topics?.[2]; // 'to' address
-          
-          if (winnerAddress?.toLowerCase() === j1Address.toLowerCase()) {
-            setCurrentView(isPlayer1 ? 'player1-win' : 'player2-lose');
-            setWarningMessage(isPlayer1 ? "You won! Player 1 beats Player 2." : "You lost! Player 1 beats Player 2.");
-          } else {
-            setCurrentView(isPlayer1 ? 'player1-lose' : 'player2-win');
-            setWarningMessage(isPlayer1 ? "You lost! Player 2 beats Player 1." : "You won! Player 2 beats Player 1.");
-          }
-        } else if (transferValue === stakeValue) {
-          // Timeout - only stake returned
+        // Update gameInfo with Player 1's revealed move
+        const updatedGameInfo = {
+          ...gameInfo,
+          c1: c1
+        };
+        setGameInfo(updatedGameInfo);
+        
+        if (winner === 1) {
+          setCurrentView(isPlayer1 ? 'player1-win' : 'player2-lose');
+        } else if (winner === 2) {
           setCurrentView(isPlayer1 ? 'player1-lose' : 'player2-win');
-          setWarningMessage(isPlayer1 ? "You lost! You timed out." : "You won! Player 1 timed out.");
+        } else {
+          setCurrentView('tie');
         }
-      } else if (transfers.length === 2) {
-        // Two transfers - tie (both get stake back)
-        setCurrentView(isPlayer1 ? 'player1-win' : 'player2-win'); // Both get their stake back
-        setWarningMessage("It's a tie! Both players get their stake back.");
-      }
-      
-      
-      setWarningType('info');
+      } 
     } catch (error) {
-      setWarningMessage("Game ended but couldn't determine winner. Check your wallet balance.");
-      setWarningType('warning');
-      setCurrentView(userAddress.toLowerCase() === j1Address.toLowerCase() ? 'player1-win' : 'player2-win');
+      console.error('Error determining winner:', error);
+      setWarningMessage("Could not determine winner");
+      setWarningType('error');
     }
+  };
+
+  // Local game winner determination logic (same as contract)
+  const determineGameWinner = (c1: number, c2: number): number => {
+    if (c1 === c2) return 0; // Tie
+    if (c1 === 0) return 2; // Player 1 didn't play
+    if (c2 === 0) return 1; // Player 2 didn't play
+    
+    // Same parity: lower number wins
+    if (c1 % 2 === c2 % 2) {
+      return c1 < c2 ? 1 : 2;
+    }
+    // Different parity: higher number wins
+    return c1 > c2 ? 1 : 2;
   };
 
   // Check game status function
@@ -265,6 +274,7 @@ export const useGameState = (): GameContextType => {
         stake: formatEther(stake as bigint),
         originalStake: gameInfo.originalStake || formatEther(stake as bigint),
         c1Hash: c1Hash as string,
+        c1: gameInfo.c1 || 0,
         c2: Number(c2),
         lastAction: Number(lastAction),
         playerRole: gameInfo.playerRole
@@ -344,15 +354,15 @@ export const useGameState = (): GameContextType => {
   const deployContract = async () => {
     if (!walletClient || !address) {
       setWarningMessage("Wallet not connected");
-      setWarningType('error');
-      return;
-    }
-
+        setWarningType('error');
+        return;
+      }
+      
     if (!gameInfo.j2Address) {
       setWarningMessage("Please enter Player 2's address");
-      setWarningType('error');
-      return;
-    }
+        setWarningType('error');
+        return;
+      }
 
     setWarningMessage("");
     try {
@@ -378,6 +388,7 @@ export const useGameState = (): GameContextType => {
         stake: stakeAmount,
           originalStake: stakeAmount,
           c1Hash: c1Hash,
+        c1: 0,
         c2: 0,
         lastAction: Math.floor(Date.now() / 1000),
         playerRole: 'player1'
@@ -439,12 +450,12 @@ export const useGameState = (): GameContextType => {
         ? await walletClient.writeContract({
             address: gameInfo.contractAddress as Address,
             abi: abi as any,
-            functionName: 'j1Timeout',
+            functionName: 'j2Timeout',
           } as any)
         : await walletClient.writeContract({
             address: gameInfo.contractAddress as Address,
             abi: abi as any,
-            functionName: 'j2Timeout',
+            functionName: 'j1Timeout',
           } as any);
       
       await publicClient?.waitForTransactionReceipt({ hash });
@@ -519,5 +530,8 @@ export const useGameState = (): GameContextType => {
     playMove,
     callTimeout,
     revealMove,
+    getLastContractTransaction,
+    determineWinner,
+    determineGameWinner,
   };
 };
