@@ -62,6 +62,10 @@ A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock ga
 - Either party can trigger the appropriate timeout branch if the opponent stalls.
 - Once `stake` reaches zero, the app decodes the latest transaction to determine the outcome (win, loss, tie) and routes to the summary view.
 
+### Status Polling and Timing Tradeoffs
+- The application polls the blockchain every 2 seconds during active gameplay states (`player1-wait`, `player1-reveal`, `player2-play`, `player2-wait`) to detect state changes and update the UI accordingly.
+- This creates a fundamental tradeoff: more frequent polling provides faster UI updates and better user experience, but increases network requests and potential rate limiting. Less frequent polling reduces resource usage but may result in delayed state updates, especially during critical moments like move reveals or timeout conditions.
+
 ## Security Practices
 - **Commitment Integrity:** The frontend constructs the exact keccak256 commitment expected by `RPS.sol` and never leaks Player 1's move before the reveal transaction.
 - **High-Entropy Salt:** Salts are generated with `crypto.getRandomValues` to provide 256 bits of entropy, mitigating the other player trying to find the commited move via trying replicate the hash.
@@ -71,4 +75,7 @@ A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock ga
 
 
 ## Mixed-Strategy Nash Equilibrium
-In Rock–Paper–Scissors–Lizard–Spock, each weapon beats two choices and loses to two others. The Nash equilibrium mixed strategy is to play each of the 5 moves randomly with equal probability (20% each). This prevents opponents from exploiting any predictable patterns in your play.
+-In Rock–Paper–Scissors–Lizard–Spock, each weapon beats two choices and loses to two others. No alternative has an upside to any other alternative, it's a balanced game like the classic Rock-Paper-Scissors, so the mixed-strategy nash equilibrium would be playing one move randomly out of the 5 each turn.
+
+## Additional Notes
+-The decentralised version of the game introduces some complexities that do not exist in other versions of the game, since the commit-reveal scheme incurs network fees, if the stake is not much bigger than the network fees, the fees will dictate part of the optimal behaviour of the players ex. if Player 1 knows he's lost, he would not reveal his move and force Player 2 to call time out. 
