@@ -44,10 +44,6 @@ export const TieView = ({ gameState }: TieViewProps) => {
           <p><strong>Your Move:</strong> {currentPlayerMove}</p>
           <p><strong>Opponent's Move:</strong> {opponentMove}</p>
         </div>
-        
-        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f0f8ff', border: '1px solid #000' }}>
-          <p><strong>Result:</strong> Both players get their stake back!</p>
-        </div>
       </div>
 
       <button
