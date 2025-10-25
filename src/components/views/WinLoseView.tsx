@@ -14,14 +14,11 @@ export const WinLoseView = ({ gameState, isWin, player }: WinLoseViewProps) => {
     setCurrentView
   } = gameState;
 
-  const player1Move = gameInfo?.c1 > 0 ? moveNames[gameInfo.c1] : 'Unknown';
-  const player2Move = gameInfo?.c2 > 0 ? moveNames[gameInfo.c2] : 'Unknown';
-  
-  // For the current player, use selectedMove if available, otherwise use the stored move
-  const currentPlayerMove = player === 'player1' 
-    ? (selectedMove > 0 ? moveNames[selectedMove] : player1Move)
-    : (selectedMove > 0 ? moveNames[selectedMove] : player2Move);
-  const opponentMove = player === 'player1' ? player2Move : player1Move;
+  // Use the same logic as GameInfoDisplay for consistency
+  const currentPlayerMove = selectedMove > 0 ? moveNames[selectedMove] : 'Unknown';
+  const opponentMove = player === 'player1' 
+    ? (gameInfo?.c2 > 0 ? moveNames[gameInfo.c2] : 'Unknown')
+    : (gameInfo?.c1 > 0 ? moveNames[gameInfo.c1] : 'Unknown');
 
   const handleNewGame = () => {
     setCurrentView('landing');

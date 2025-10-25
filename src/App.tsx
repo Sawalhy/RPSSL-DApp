@@ -100,6 +100,7 @@ function App() {
 			{showGameInfo && gameInfo && (
 				<GameInfoDisplay
 					gameInfo={gameInfo}
+					gameState={gameState}
 				/>
 			)}
 			

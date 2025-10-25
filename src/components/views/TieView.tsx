@@ -12,12 +12,11 @@ export const TieView = ({ gameState }: TieViewProps) => {
     setCurrentView
   } = gameState;
 
-  const player1Move = gameInfo?.c1 > 0 ? moveNames[gameInfo.c1] : 'Unknown';
-  const player2Move = gameInfo?.c2 > 0 ? moveNames[gameInfo.c2] : 'Unknown';
-  
-  // For the current player, use selectedMove if available, otherwise use the stored move
-  const currentPlayerMove = selectedMove > 0 ? moveNames[selectedMove] : (gameInfo?.playerRole === 'player1' ? player1Move : player2Move);
-  const opponentMove = gameInfo?.playerRole === 'player1' ? player2Move : player1Move;
+  // Use the same logic as GameInfoDisplay for consistency
+  const currentPlayerMove = selectedMove > 0 ? moveNames[selectedMove] : 'Unknown';
+  const opponentMove = gameInfo?.playerRole === 'player1' 
+    ? (gameInfo?.c2 > 0 ? moveNames[gameInfo.c2] : 'Unknown')
+    : (gameInfo?.c1 > 0 ? moveNames[gameInfo.c1] : 'Unknown');
 
   const handleNewGame = () => {
     setCurrentView('landing');
