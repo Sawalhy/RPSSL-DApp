@@ -75,7 +75,7 @@ A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock ga
 
 
 ## Mixed-Strategy Nash Equilibrium
--In Rock–Paper–Scissors–Lizard–Spock, each weapon beats two choices and loses to two others. No alternative has an upside to any other alternative, it's a balanced game like the classic Rock-Paper-Scissors, so the mixed-strategy nash equilibrium would be playing one move randomly out of the 5 each turn.
+In Rock–Paper–Scissors–Lizard–Spock, each weapon beats two choices and loses to two others. No alternative has an upside to any other alternative, it's a balanced game like the classic Rock-Paper-Scissors, so the mixed-strategy nash equilibrium would be playing one move randomly out of the 5 each turn.
 
 ## Additional Notes
--The decentralised version of the game introduces some complexities that do not exist in other versions of the game, since the commit-reveal scheme incurs network fees, if the stake is not much bigger than the network fees, the fees will dictate part of the optimal behaviour of the players ex. if Player 1 knows he's lost, he would not reveal his move and force Player 2 to call time out. 
+The decentralised version of the game introduces some complexities that do not exist in other versions of the game, since the commit-reveal scheme incurs network fees, if the stake is not much bigger than the network fees, the fees will dictate part of the optimal behaviour of the players ex. if Player 1 knows he's lost, he would not reveal his move and force Player 2 to call time out. 
