@@ -19,7 +19,7 @@ A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock ga
 ---
 
 ## Project Overview
-- **Purpose:** Provide a non-custodial interface for two players to execute the Rock–Paper–Scissors–Lizard–Spock (RPSSL) smart contract without modifying the on-chain logic.
+- **Purpose:** Provide a decentralized interface for two players to execute the Rock–Paper–Scissors–Lizard–Spock (RPSSL) smart contract without modifying the on-chain logic.
 - **Supported Network:** Ethereum Sepolia testnet. The frontend polls Sepolia block data via wagmi and Blockscout-compatible endpoints.
 - **Wallet Compatibility:** MetaMask only.
 - **Smart Contract:** `RPS.sol` supplied with the exercise (bundled under `src/Solidity/RPS.sol`).
@@ -41,7 +41,6 @@ A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock ga
    npm run dev
    ```
 3. Open the printed localhost URL in a browser with your wallet connected to Sepolia.
-4. (Optional) Import the ABI from `src/contract/abi.ts` into your wallet if you want to inspect contract interactions directly.
 
 ## Gameplay Walkthrough
 ### Player 1 — Commit Phase
@@ -65,11 +64,11 @@ A web client for the commit–reveal Rock–Paper–Scissors–Lizard–Spock ga
 
 ## Security Practices
 - **Commitment Integrity:** The frontend constructs the exact keccak256 commitment expected by `RPS.sol` and never leaks Player 1's move before the reveal transaction.
-- **High-Entropy Salt:** Salts are generated with `crypto.getRandomValues` to provide 256 bits of entropy, mitigating rainbow-table and replay attacks.
+- **High-Entropy Salt:** Salts are generated with `crypto.getRandomValues` to provide 256 bits of entropy, mitigating the other player trying to find the commited move via trying replicate the hash.
 - **Input Validation:** Deployment and play actions require a connected wallet, a valid opponent address, and a non-zero stake before submitting any transactions.
 - **Timeout Awareness:** A synchronized five-minute timer (based on `lastAction`) keeps both parties aware of when timeout functions become safe to call.
 - **Salt Persistence:** The app automatically saves Player 1's salt to localStorage, ensuring it persists across browser refreshes and prevents the critical risk of losing the ability to reveal.
 
 
 ## Mixed-Strategy Nash Equilibrium
-In Rock–Paper–Scissors–Lizard–Spock each weapon beats two choices and loses to two, creating a symmetric zero-sum payoff matrix. The unique mixed-strategy Nash equilibrium is to randomize uniformly across all five moves (20% probability each). Any deviation lets the opponent exploit an overweighted option, so equal weighting is the only stable strategy profile.
+In Rock–Paper–Scissors–Lizard–Spock, each weapon beats two choices and loses to two others. The Nash equilibrium mixed strategy is to play each of the 5 moves randomly with equal probability (20% each). This prevents opponents from exploiting any predictable patterns in your play.
