@@ -49,16 +49,45 @@ function App() {
 			default:
 				return (
 					<div style={{ textAlign: 'center', padding: '50px' }}>
-						<h1>Rock Paper Scissors Spock Lizard</h1>
-						<p style={{ marginBottom: '30px' }}>
+						<h1 style={{ 
+							fontSize: '2.5rem', 
+							fontWeight: '600', 
+							marginBottom: '1rem',
+							letterSpacing: '-0.02em',
+							color: '#1a1a1a'
+						}}>
+							Rock Paper Scissors Lizard Spock
+						</h1>
+						<p style={{ 
+							marginBottom: '30px', 
+							fontSize: '1.1rem',
+							color: '#666',
+							fontWeight: '400'
+						}}>
 							Choose your role to start playing
 						</p>
 						<div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
 							<button
 								onClick={() => setCurrentView('create-game')}
 								style={{
-									padding: '10px 20px',
-									cursor: 'pointer'
+									padding: '12px 24px',
+									cursor: 'pointer',
+									fontSize: '1rem',
+									fontWeight: '500',
+									border: '2px solid #007bff',
+									backgroundColor: '#007bff',
+									color: 'white',
+									borderRadius: '8px',
+									transition: 'all 0.2s ease',
+									fontFamily: 'inherit'
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.backgroundColor = '#0056b3';
+									e.currentTarget.style.borderColor = '#0056b3';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.backgroundColor = '#007bff';
+									e.currentTarget.style.borderColor = '#007bff';
 								}}
 							>
 								Create Game
@@ -66,8 +95,24 @@ function App() {
 							<button
 								onClick={() => setCurrentView('join-game')}
 								style={{
-									padding: '10px 20px',
-									cursor: 'pointer'
+									padding: '12px 24px',
+									cursor: 'pointer',
+									fontSize: '1rem',
+									fontWeight: '500',
+									border: '2px solid #28a745',
+									backgroundColor: '#28a745',
+									color: 'white',
+									borderRadius: '8px',
+									transition: 'all 0.2s ease',
+									fontFamily: 'inherit'
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.backgroundColor = '#1e7e34';
+									e.currentTarget.style.borderColor = '#1e7e34';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.backgroundColor = '#28a745';
+									e.currentTarget.style.borderColor = '#28a745';
 								}}
 							>
 								Join Game
